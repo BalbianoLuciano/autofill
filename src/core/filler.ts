@@ -1,0 +1,156 @@
+/**
+ * Relleno.
+ *
+ * Lo mas importante del proyecto esta en `setValue`: los inputs controlados
+ * por React ignoran `element.value = x`. React guarda el ultimo valor que el
+ * mismo escribio en una propiedad interna del nodo, ve que `value` coincide,
+ * y descarta el evento como si no hubiera pasado nada. El campo se ve lleno y
+ * el formulario se envia vacio. Greenhouse, Lever y Ashby son todos React.
+ *
+ * La salida es llamar al setter nativo del prototipo, que escribe el valor sin
+ * pasar por el descriptor que React instalo en la instancia.
+ */
+
+import { similarity } from './normalize';
+import type { Fillable } from './matcher';
+
+/** Se le pone a los campos completados y a los sensibles, para que se vean. */
+export const HIGHLIGHT_ATTR = 'data-autofill';
+
+/**
+ * Escribe un valor de forma que React, Vue y Svelte lo registren.
+ */
+export function setValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const prototype =
+    el instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+
+  const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+  if (setter) setter.call(el, value);
+  else el.value = value;
+
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * Elige la opcion de un `<select>` que mejor se parece al valor.
+ *
+ * Si ninguna llega al umbral, no toca nada y devuelve las opciones para que el
+ * popup las muestre: mejor dejarlo vacio que elegir el pais equivocado.
+ */
+export function setSelectValue(
+  el: HTMLSelectElement,
+  value: string,
+): { ok: true } | { ok: false; options: string[] } {
+  const options = Array.from(el.options).filter((o) => o.value !== '' && !o.disabled);
+
+  let best: { option: HTMLOptionElement; score: number } | null = null;
+  for (const option of options) {
+    const score = Math.max(similarity(option.text, value), similarity(option.value, value));
+    if (best === null || score > best.score) best = { option, score };
+  }
+
+  if (!best || best.score < 0.72) {
+    return { ok: false, options: options.map((o) => o.text.trim()) };
+  }
+
+  el.value = best.option.value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  return { ok: true };
+}
+
+/** Lo mismo para un grupo de radios: marca el que mejor se parece al valor. */
+export function setRadioValue(
+  group: HTMLInputElement[],
+  value: string,
+): { ok: true } | { ok: false; options: string[] } {
+  const labelled = group.map((input) => ({ input, text: radioLabel(input) }));
+
+  let best: { input: HTMLInputElement; score: number } | null = null;
+  for (const { input, text } of labelled) {
+    const score = Math.max(similarity(text, value), similarity(input.value, value));
+    if (best === null || score > best.score) best = { input, score };
+  }
+
+  if (!best || best.score < 0.72) {
+    return { ok: false, options: labelled.map((l) => l.text) };
+  }
+
+  best.input.checked = true;
+  best.input.dispatchEvent(new Event('click', { bubbles: true }));
+  best.input.dispatchEvent(new Event('input', { bubbles: true }));
+  best.input.dispatchEvent(new Event('change', { bubbles: true }));
+  return { ok: true };
+}
+
+function radioLabel(input: HTMLInputElement): string {
+  const own = input.labels?.[0]?.textContent ?? input.getAttribute('aria-label') ?? '';
+  return own.trim() || input.value;
+}
+
+/**
+ * Rellena cualquier control. Devuelve por que no pudo, si no pudo.
+ */
+export function fill(
+  el: Fillable,
+  value: string,
+  group?: HTMLInputElement[],
+): { ok: true } | { ok: false; options: string[] } {
+  if (el instanceof HTMLSelectElement) return setSelectValue(el, value);
+  if (group && group.length > 0) return setRadioValue(group, value);
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    setValue(el, value);
+    return { ok: true };
+  }
+  return { ok: false, options: [] };
+}
+
+/* --------------------------------- resaltado --------------------------------- */
+
+const STYLE_ID = 'autofill-styles';
+
+const STYLES = `
+[${HIGHLIGHT_ATTR}="filled"] {
+  outline: 2px solid #4ade80 !important;
+  outline-offset: 1px !important;
+  transition: outline-color .4s ease;
+}
+[${HIGHLIGHT_ATTR}="sensitive"] {
+  outline: 2px dashed #fb923c !important;
+  outline-offset: 1px !important;
+}
+[${HIGHLIGHT_ATTR}="unmapped"] {
+  outline: 2px dotted #94a3b8 !important;
+  outline-offset: 1px !important;
+}
+`;
+
+export function ensureStyles(doc: Document): void {
+  if (doc.getElementById(STYLE_ID)) return;
+  const style = doc.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = STYLES;
+  (doc.head ?? doc.documentElement).append(style);
+}
+
+export function highlight(
+  el: Element,
+  kind: 'filled' | 'sensitive' | 'unmapped',
+): void {
+  ensureStyles(el.ownerDocument);
+  el.setAttribute(HIGHLIGHT_ATTR, kind);
+}
+
+export function clearHighlights(root: Document | ShadowRoot): void {
+  root.querySelectorAll(`[${HIGHLIGHT_ATTR}]`).forEach((el) => {
+    el.removeAttribute(HIGHLIGHT_ATTR);
+  });
+}
+
+/** Lleva el primer campo sensible a la vista, que es lo que hay que revisar. */
+export function scrollToFirst(elements: Element[]): void {
+  elements[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
