@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Autofill</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Autofill</h1>
+      <nav role="tablist">
+        <button role="tab" data-tab="fill" aria-selected="true">Rellenar</button>
+        <button role="tab" data-tab="profile" aria-selected="false">Perfil</button>
+      </nav>
+    </header>
+
+    <section id="panel-fill" role="tabpanel">
+      <p class="site" id="site"></p>
+      <button id="run" class="primary">Rellenar</button>
+      <div id="result" class="result"></div>
+    </section>
+
+    <section id="panel-profile" role="tabpanel" hidden>
+      <form id="profile-form"></form>
+      <div class="toolbar">
+        <label class="check">
+          <input type="checkbox" id="fill-sensitive" />
+          <span>Rellenar tambien los campos sensibles</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="overwrite-filled" />
+          <span>Pisar campos que ya tienen contenido</span>
+        </label>
+      </div>
+      <div class="actions">
+        <button id="save" class="primary">Guardar perfil</button>
+        <button id="export" class="ghost">Exportar</button>
+        <button id="import" class="ghost">Importar</button>
+        <input type="file" id="import-file" accept="application/json" hidden />
+      </div>
+      <p class="note">
+        Todo queda en este navegador. Nada se envia a ningun servidor.
+      </p>
+      <p id="profile-status" class="status" role="status"></p>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
