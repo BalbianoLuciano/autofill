@@ -1,0 +1,13 @@
+node_modules/
+.wxt/
+.output/
+*.zip
+stats.html
+
+# El perfil real nunca se commitea. Vive en chrome.storage.local.
+profile.json
+profile.local.json
+*.profile.json
+.env
+.env.*
+.DS_Store
