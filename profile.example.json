@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "_comment": "Datos ficticios. El perfil real vive en chrome.storage.local y nunca se commitea. Este archivo existe para mostrar la forma del JSON que acepta Importar.",
+  "profile": {
+    "firstName": "Ada",
+    "lastName": "Lovelace",
+    "fullName": "Ada Lovelace",
+    "email": "ada@example.com",
+    "phone": "+34 600 000 000",
+    "linkedin": "https://linkedin.com/in/ejemplo",
+    "github": "https://github.com/ejemplo",
+    "portfolio": "https://ejemplo.github.io",
+    "city": "Madrid",
+    "country": "España",
+    "postalCode": "28001",
+    "currentTitle": "Frontend Engineer",
+    "currentCompany": "Analytical Engines S.L.",
+    "yearsExperience": "7",
+    "noticePeriod": "15 días",
+    "englishLevel": "C1",
+    "education": "Ingeniería en Sistemas",
+    "howDidYouHear": "LinkedIn"
+  },
+  "mappings": {
+    "boards.greenhouse.io": {
+      "name:job_application[answers_attributes][0][text_value]": "yearsExperience"
+    }
+  },
+  "settings": {
+    "fillSensitive": false,
+    "overwriteFilled": false
+  }
+}
