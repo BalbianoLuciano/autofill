@@ -108,6 +108,7 @@ export const SKIP_REASON_LABELS: Record<SkipReason, string> = {
   'no-value': 'No hay dato en el perfil',
   'no-currency': 'Pide una moneda que no cargaste',
   'no-option': 'Ninguna opción coincidió',
+  'needs-answer': 'Pregunta abierta, la contestás vos',
   'already-filled': 'Ya tenía contenido',
   unmapped: 'Sin reconocer',
 };

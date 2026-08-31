@@ -9,12 +9,13 @@
 import { browser } from 'wxt/browser';
 import { FIELDS, FIELD_BY_KEY, kindOf, type FieldKey } from '../../core/fields';
 import {
-  clearAll, exportJson, forgetMapping, getMappings, getStore, importJson,
-  learnMapping, saveProfile, saveSettings,
+  clearAll, deleteQuestion, exportJson, forgetMapping, getMappings, getStore,
+  importJson, learnMapping, saveProfile, saveSettings,
 } from '../../core/storage';
+import { deleteCv, listCvs, pickCv, readCv, saveCv } from '../../core/cvs';
 import type {
-  Currency, FilledField, FillReport, Lang, Period, Profile, ProfileValue,
-  RegionCode, SalaryEntry, Settings, SkippedField,
+  Currency, CustomQuestion, CvMeta, CvRole, FilledField, FillReport, Lang,
+  Period, Profile, ProfileValue, RegionCode, SalaryEntry, Settings, SkippedField,
 } from '../../types';
 import {
   CURRENCY_LABELS, FIELD_HINTS, FIELD_LABELS, GROUPS, LANG_LABELS,
@@ -59,6 +60,10 @@ const profileStatus = $<HTMLParagraphElement>('#profile-status');
 
 let profile: Profile = {};
 let settings: Settings;
+let questions: CustomQuestion[] = [];
+let cvs: CvMeta[] = [];
+/** El CV que se va a adjuntar, ya elegido para la pestana actual. */
+let chosenCv: CvMeta | null = null;
 
 /* ---------------------------------- tabs ---------------------------------- */
 
@@ -278,6 +283,16 @@ $<HTMLInputElement>('#overwrite-filled').addEventListener('change', (event) => {
   void saveSettings({ overwriteFilled: settings.overwriteFilled });
 });
 
+$<HTMLInputElement>('#auto-apply').addEventListener('change', (event) => {
+  settings.autoApply = (event.target as HTMLInputElement).checked;
+  void saveSettings({ autoApply: settings.autoApply });
+});
+
+$<HTMLInputElement>('#attach-cv').addEventListener('change', (event) => {
+  settings.attachCv = (event.target as HTMLInputElement).checked;
+  void saveSettings({ attachCv: settings.attachCv });
+});
+
 $<HTMLSelectElement>('#language').addEventListener('change', (event) => {
   settings.language = (event.target as HTMLSelectElement).value as Settings['language'];
   void saveSettings({ language: settings.language });
@@ -345,6 +360,102 @@ importInput.addEventListener('change', async () => {
   }
 });
 
+/* ---------------------------------- CVs ---------------------------------- */
+
+function renderCvs(): void {
+  const list = $<HTMLUListElement>('#cv-list');
+
+  if (cvs.length === 0) {
+    list.replaceChildren(el('p', { className: 'empty' }, 'Todavía no cargaste ninguno.'));
+    return;
+  }
+
+  list.replaceChildren(
+    ...cvs.map((cv) => {
+      const li = el('li', {},
+        el('div', {},
+          el('span', { className: 'label' }, cv.label || cv.filename),
+          el('span', { className: 'meta' },
+            `${cv.lang.toUpperCase()} · ${roleLabel(cv.role)} · ${Math.round(cv.size / 1024)} kB`),
+        ),
+      );
+      if (chosenCv?.id === cv.id) li.dataset.picked = 'true';
+
+      const remove = el('button', { className: 'link', textContent: 'Borrar' });
+      remove.addEventListener('click', async () => {
+        await deleteCv(cv.id);
+        cvs = await listCvs();
+        renderCvs();
+      });
+
+      li.append(remove);
+      return li;
+    }),
+  );
+}
+
+const roleLabel = (role: CvRole) =>
+  role === 'ai' ? 'AI Engineer' : role === 'lead' ? 'Team Leader' : 'Cualquiera';
+
+$<HTMLButtonElement>('#cv-save').addEventListener('click', async () => {
+  const file = $<HTMLInputElement>('#cv-file').files?.[0];
+  const status = $<HTMLParagraphElement>('#cv-status');
+  if (!file) {
+    status.textContent = 'Elegí un archivo primero.';
+    status.dataset.kind = 'error';
+    return;
+  }
+
+  try {
+    const label = $<HTMLInputElement>('#cv-label').value.trim() || file.name;
+    await saveCv(
+      file,
+      label,
+      $<HTMLSelectElement>('#cv-lang').value as Lang,
+      $<HTMLSelectElement>('#cv-role').value as CvRole,
+    );
+    cvs = await listCvs();
+    renderCvs();
+    $<HTMLInputElement>('#cv-file').value = '';
+    $<HTMLInputElement>('#cv-label').value = '';
+    status.textContent = 'CV guardado.';
+    status.dataset.kind = 'ok';
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : 'No se pudo guardar.';
+    status.dataset.kind = 'error';
+  }
+});
+
+function renderQuestions(): void {
+  const list = $<HTMLUListElement>('#question-list');
+
+  if (questions.length === 0) {
+    list.replaceChildren(el('p', { className: 'empty' }, 'Ninguna todavía.'));
+    return;
+  }
+
+  list.replaceChildren(
+    ...questions.map((q) => {
+      const li = el('li', {},
+        el('div', {},
+          el('span', { className: 'label' }, q.question),
+          el('span', { className: 'meta' }, q.answer.slice(0, 90) + (q.answer.length > 90 ? '…' : '')),
+        ),
+      );
+
+      const remove = el('button', { className: 'link', textContent: 'Borrar' });
+      remove.addEventListener('click', async () => {
+        await deleteQuestion(q.id);
+        questions = (await getStore()).questions;
+        renderQuestions();
+      });
+
+      li.append(remove);
+      return li;
+    }),
+  );
+}
+
 /* -------------------------------- rellenar -------------------------------- */
 
 runButton.addEventListener('click', async () => {
@@ -376,6 +487,15 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
   const store = await getStore();
   profile = store.profile;
   settings = store.settings;
+  questions = store.questions;
+
+  // El CV se elige una vez por corrida: idioma del formulario y puesto de la
+  // pagina. El titulo de la pestana es la mejor pista del puesto que hay.
+  cvs = await listCvs();
+  chosenCv = store.settings.attachCv
+    ? pickCv(cvs, store.settings.language === 'auto' ? 'en' : store.settings.language, tab.title ?? '')
+    : null;
+  const cv = chosenCv ? await readCv(chosenCv.id) : null;
 
   const reports = await Promise.all(
     injections.map(async ({ frameId }): Promise<FrameReport | null> => {
@@ -391,6 +511,8 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
             profile: store.profile,
             mappings: await getMappings(hostname),
             settings: store.settings,
+            questions: store.questions,
+            cv,
           },
           { frameId },
         )) as FillReport;
@@ -437,8 +559,21 @@ function renderReports(frames: FrameReport[]): void {
   );
   resultBox.append(summary);
 
+  const top = frames[0]!.report;
+  if (top.cvAttached) {
+    resultBox.append(el('p', { className: 'apply-line' }, `CV adjuntado: ${top.cvAttached}`));
+  }
+  resultBox.append(applyLine(top.apply));
+
   if (filled.length > 0) {
     resultBox.append(section('ok', 'Completados', filled.map(filledItem)));
+  }
+
+  const needsAnswer = skipped.filter((s) => s.reason === 'needs-answer');
+  if (needsAnswer.length > 0) {
+    resultBox.append(section('warn', 'Preguntas abiertas', needsAnswer.map(
+      (s) => item(s.label, 'Contestala en el panel sobre la página'),
+    )));
   }
 
   // Los sensibles traen la sugerencia ya resuelta al periodo y la moneda que
@@ -473,6 +608,28 @@ function renderReports(frames: FrameReport[]): void {
       (s) => item(s.label || FIELD_LABELS[s.key!], SKIP_REASON_LABELS[s.reason]),
     )));
   }
+}
+
+/** El estado del envio automatico, en una linea. */
+function applyLine(outcome: FillReport['apply']): HTMLElement {
+  const line = el('p', { className: 'apply-line' });
+  line.dataset.status = outcome.status;
+
+  switch (outcome.status) {
+    case 'off':
+      line.textContent = 'Envío automático apagado. Revisá y enviá vos.';
+      break;
+    case 'armed':
+      line.textContent = `Enviando con «${outcome.label}» — cancelable desde la página.`;
+      break;
+    case 'no-button':
+      line.textContent = 'Todo completo, pero no se identificó el botón de enviar.';
+      break;
+    case 'incomplete':
+      line.textContent = `Sin enviar, falta: ${outcome.missing.slice(0, 3).join(', ')}.`;
+      break;
+  }
+  return line;
 }
 
 /**
@@ -580,6 +737,8 @@ function renderError(error: unknown): void {
 function reflectSettings(): void {
   $<HTMLInputElement>('#fill-sensitive').checked = settings.fillSensitive;
   $<HTMLInputElement>('#overwrite-filled').checked = settings.overwriteFilled;
+  $<HTMLInputElement>('#auto-apply').checked = settings.autoApply;
+  $<HTMLInputElement>('#attach-cv').checked = settings.attachCv;
   $<HTMLSelectElement>('#language').value = settings.language;
 }
 
@@ -599,7 +758,11 @@ async function init(): Promise<void> {
   const store = await getStore();
   profile = store.profile;
   settings = store.settings;
+  questions = store.questions;
+  cvs = await listCvs();
   renderProfileForm(profile);
+  renderCvs();
+  renderQuestions();
   reflectSettings();
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });

@@ -12,6 +12,7 @@
       <nav role="tablist">
         <button role="tab" data-tab="fill" aria-selected="true">Rellenar</button>
         <button role="tab" data-tab="profile" aria-selected="false">Perfil</button>
+        <button role="tab" data-tab="cvs" aria-selected="false">CVs</button>
       </nav>
     </header>
 
@@ -24,6 +25,19 @@
     <section id="panel-profile" role="tabpanel" hidden>
       <form id="profile-form"></form>
       <div class="toolbar">
+        <label class="check">
+          <input type="checkbox" id="auto-apply" />
+          <span>Enviar la aplicación automáticamente</span>
+        </label>
+        <p class="warn-note" id="auto-apply-note">
+          Rellena, adjunta el CV y envía tras una cuenta regresiva cancelable.
+          Enviar no se puede deshacer, y varios ATS bloquean volver a postularse
+          al mismo puesto.
+        </p>
+        <label class="check">
+          <input type="checkbox" id="attach-cv" />
+          <span>Adjuntar el CV automáticamente</span>
+        </label>
         <label class="setting">
           <span>Idioma de las respuestas</span>
           <select id="language"></select>
@@ -50,6 +64,47 @@
         Todo queda en este navegador. Nada se envia a ningun servidor.
       </p>
       <p id="profile-status" class="status" role="status"></p>
+    </section>
+
+    <section id="panel-cvs" role="tabpanel" hidden>
+      <p class="note">
+        Se elige solo por el idioma del formulario y por el puesto. Podés
+        cambiarlo antes de enviar.
+      </p>
+      <ul id="cv-list" class="cv-list"></ul>
+
+      <fieldset class="cv-add">
+        <legend>Sumar un CV</legend>
+        <label class="field">
+          <span class="field-name">Archivo (PDF o DOCX, hasta 5 MB)</span>
+          <input type="file" id="cv-file" accept=".pdf,.doc,.docx,application/pdf" />
+        </label>
+        <label class="field">
+          <span class="field-name">Cómo lo llamás</span>
+          <input type="text" id="cv-label" placeholder="AI Engineer · ES" />
+        </label>
+        <div class="salary-row">
+          <select id="cv-lang">
+            <option value="es">Español</option>
+            <option value="en">Inglés</option>
+          </select>
+          <select id="cv-role">
+            <option value="ai">AI Engineer</option>
+            <option value="lead">Team Leader</option>
+            <option value="any">Cualquiera</option>
+          </select>
+          <button id="cv-save" class="primary">Guardar</button>
+        </div>
+      </fieldset>
+
+      <h3 class="sub">Respuestas guardadas</h3>
+      <p class="note">
+        Las preguntas abiertas que contestaste. Se reusan por similitud cuando
+        vuelve a aparecer una parecida.
+      </p>
+      <ul id="question-list" class="cv-list"></ul>
+
+      <p id="cv-status" class="status" role="status"></p>
     </section>
 
     <script type="module" src="./main.ts"></script>
