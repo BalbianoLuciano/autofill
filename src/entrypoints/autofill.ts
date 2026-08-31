@@ -10,7 +10,7 @@
  */
 
 import { browser } from 'wxt/browser';
-import { applyLearned, runFill } from '../core/engine';
+import { applyAnswer, applyLearned, runFill } from '../core/engine';
 import type { Message } from '../types';
 
 const READY_FLAG = '__autofillEngineReady';
@@ -36,8 +36,14 @@ export default defineUnlistedScript(() => {
             profile: message.profile,
             mappings: message.mappings,
             settings: message.settings,
+            questions: message.questions,
+            cv: message.cv,
           }),
         );
+        return;
+
+      case 'AUTOFILL_ANSWER':
+        sendResponse({ ok: applyAnswer(message.signature, message.answer) });
         return;
 
       case 'AUTOFILL_APPLY_LEARNED':
