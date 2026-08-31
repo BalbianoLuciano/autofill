@@ -7,6 +7,25 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.3.0
+
+Rediseño del popup.
+
+- **Helvetica Neue** como fuente, con su pila de respaldo. Es lo que pide un panel
+  denso de formularios: neutra, sin personalidad que compita con el contenido, y con
+  dígitos que se alinean en las columnas de sueldo.
+- **El «Choose file» nativo se fue.** No se puede estilar y cada plataforma lo dibuja
+  distinto. En su lugar hay una zona de arrastre que acepta el archivo soltándolo o
+  haciendo click, y que muestra cuál quedó elegido y cuánto pesa.
+- **Los ajustes salen de Perfil a su propia pestaña.** Estaban enterrados debajo de un
+  formulario de 38 campos, que es el peor lugar posible para algo como «enviar la
+  aplicación automáticamente».
+- **Switches en vez de casillas** para los ajustes, con una línea que explica qué hace
+  cada uno y qué pasa si se prende.
+- Pestañas como control segmentado, selects con su propio chevron (el nativo cambia en
+  cada sistema), tarjetas para los CVs con el elegido marcado, y «Guardar perfil» fijo
+  al pie para no tener que scrollear hasta el fondo.
+
 ## 1.2.0
 
 De rellenar a resolver la aplicación entera: adjunta el CV, contesta las preguntas
