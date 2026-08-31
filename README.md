@@ -143,6 +143,18 @@ Atajo: `Alt+Shift+F` abre el popup.
 
 ---
 
+## Contribuir
+
+Se agradecen PRs, sobre todo **aliases nuevos para el diccionario** y **portales
+donde no funciona**. Ver [CONTRIBUTING.md](CONTRIBUTING.md).
+
+El razonamiento detrás de cada decisión está en
+[docs/DISENO.md](docs/DISENO.md).
+
+## Licencia
+
+MIT. Ver [LICENSE](LICENSE).
+
 ## Pendiente
 
 - **Adaptadores por ATS** para los formularios en varios pasos.
