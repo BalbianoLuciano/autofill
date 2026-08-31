@@ -89,9 +89,11 @@ function applyTo(field: DetectedField, options: RunOptions, lang: Lang): Outcome
   if (key === null) return applyOpenQuestion(field, options);
 
   const qualifiers = extractQualifiers(`${label} ${el.getAttribute('placeholder') ?? ''}`);
+  const text = `${label} ${el.getAttribute('placeholder') ?? ''}`;
   const resolution = resolve(key, options.profile, {
     lang,
     qualifiers,
+    text,
     numeric: isNumericInput(el),
     inputType: el instanceof HTMLInputElement ? el.type : undefined,
   });
@@ -107,6 +109,17 @@ function applyTo(field: DetectedField, options: RunOptions, lang: Lang): Outcome
   if (resolution.problem === 'no-currency') {
     highlight(el, 'sensitive');
     return { kind: 'skipped', field: { signature, label, key, reason: 'no-currency' } };
+  }
+
+  // La pregunta es por una tecnologia puntual que no esta en el perfil. Antes
+  // esto contestaba el total general, que es afirmar una experiencia que no
+  // tenes; ahora se reporta para que la agregues vos.
+  if (resolution.problem === 'unlisted-skill') {
+    highlight(el, 'unmapped');
+    return {
+      kind: 'skipped',
+      field: { signature, label, key, reason: 'unlisted-skill', skill: resolution.skill },
+    };
   }
 
   if (resolution.candidates.length === 0) {
@@ -145,7 +158,10 @@ function applyTo(field: DetectedField, options: RunOptions, lang: Lang): Outcome
   highlight(el, 'filled');
   return {
     kind: 'filled',
-    field: { key, signature, label, value: suggestion ?? '', via: via ?? 'attributes' },
+    field: {
+      key, signature, label, value: suggestion ?? '',
+      skill: resolution.skill, via: via ?? 'attributes',
+    },
   };
 }
 

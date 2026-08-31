@@ -697,3 +697,23 @@ button.filename:hover { border-color: var(--accent); color: var(--text); }
 
 input.rename { width: 100%; cursor: text; }
 input.rename:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+
+/* -------------------------- matriz de tecnologias -------------------------- */
+
+.skill-rows { display: grid; gap: 5px; }
+
+.skill-row {
+  display: grid;
+  grid-template-columns: 1fr 62px 18px;
+  gap: 5px;
+  align-items: center;
+}
+
+.skill-row .link {
+  justify-self: center;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--faint);
+}
+
+.skill-row .link:hover { color: var(--danger); }

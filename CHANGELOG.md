@@ -7,6 +7,38 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.6.0
+
+**Años de experiencia, por tecnología.**
+
+Hasta acá había un solo número. Un formulario de IT pregunta por seis tecnologías en la
+misma pantalla y las seis recibían el mismo valor: si tenés cinco años de experiencia,
+la extensión afirmaba cinco años de Kubernetes. Eso no es un dato incompleto, es una
+afirmación falsa que queda por escrito en la postulación.
+
+Ahora el perfil guarda un total general y una fila por tecnología, y se lee del label de
+qué tecnología habla cada pregunta — el mismo mecanismo que ya resuelve «¿podés trabajar
+en la UE?» leyendo de qué país habla.
+
+- Si la pregunta nombra una tecnología que tenés, contesta esa.
+- Si nombra una que **no** tenés, deja el campo vacío y lo reporta, en vez de repetir el
+  total.
+- Si es general, contesta el total.
+
+**Detalles que importan**
+
+- Gana la coincidencia más larga y las dos listas compiten juntas: `React Native` le gana
+  a `React`, y `JavaScript` le gana a `Java`. Sin eso, un año de React Native se
+  convertía en cinco.
+- `JavaScript` se parte en `java script` al normalizar pero en minúsculas queda entero, y
+  las dos formas aparecen en formularios reales; se comparan también las corridas de
+  tokens pegadas, en las dos direcciones.
+- El diccionario aprendió la forma corta con la que los formularios de IT preguntan por
+  cada tecnología: «¿Cuántos años **con** React?», «Years **with** Kubernetes».
+- El número que ya tenías cargado se conserva como total general.
+
+102 tests.
+
 ## 1.5.0
 
 Primera pasada contra un formulario real (Teamtailor). Cuatro cosas rotas.

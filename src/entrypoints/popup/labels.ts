@@ -107,6 +107,7 @@ export const SKIP_REASON_LABELS: Record<SkipReason, string> = {
   sensitive: 'Sensible, lo completás vos',
   'no-value': 'No hay dato en el perfil',
   'no-currency': 'Pide una moneda que no cargaste',
+  'unlisted-skill': 'Pregunta por una tecnología que no tenés cargada',
   'no-option': 'Ninguna opción coincidió',
   'needs-answer': 'Pregunta abierta, la contestás vos',
   'already-filled': 'Ya tenía contenido',

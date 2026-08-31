@@ -8,6 +8,7 @@
  */
 
 import { FIELD_BY_KEY, type FieldKey } from './fields';
+import { detectSkill } from './skills';
 import type {
   Currency, Lang, Period, Profile, ProfileValue, Qualifiers, RegionCode,
 } from '../types';
@@ -19,6 +20,11 @@ export interface ResolveContext {
   numeric?: boolean;
   /** El `type` del input, que decide el formato de las fechas. */
   inputType?: string;
+  /**
+   * El texto del campo: label mas placeholder. De aca se lee de que tecnologia
+   * habla la pregunta, que es lo que decide cuantos anios contestar.
+   */
+  text?: string;
 }
 
 /** Los tipos que exigen una fecha con formato, no una palabra. */
@@ -43,6 +49,8 @@ export function formatDate(offsetDays: number, inputType: string, now = new Date
 }
 
 export interface Resolution {
+  /** Que tecnologia se reconocio en la pregunta, si hubo alguna. */
+  skill?: string;
   /**
    * Candidatos en orden de preferencia. El primero es el que se escribe en un
    * input de texto; la lista entera se usa para elegir la opcion de un select
@@ -50,7 +58,7 @@ export interface Resolution {
    */
   candidates: string[];
   /** Si no se pudo resolver, por que. */
-  problem?: 'no-value' | 'no-currency';
+  problem?: 'no-value' | 'no-currency' | 'unlisted-skill';
 }
 
 const EMPTY: Resolution = { candidates: [], problem: 'no-value' };
@@ -75,7 +83,43 @@ export function resolve(
     case 'choice':  return resolveChoice(key, value.code, ctx);
     case 'salary':  return resolveSalary(value, ctx);
     case 'regions': return resolveRegions(value.codes, ctx);
+    case 'skills':  return resolveSkills(value, ctx);
   }
+}
+
+/* ------------------------------- experiencia ------------------------------- */
+
+/**
+ * Cuantos anios contestar.
+ *
+ * Si la pregunta nombra una tecnologia, se responde por esa. Si nombra una que
+ * no tenes cargada, se dice que no la tenes en vez de repetir tu total: poner
+ * cinco anios de Kubernetes porque tenes cinco de experiencia es afirmar algo
+ * falso, y queda por escrito en la postulacion.
+ */
+function resolveSkills(
+  value: Extract<ProfileValue, { kind: 'skills' }>,
+  ctx: ResolveContext,
+): Resolution {
+  const asked = detectSkill(ctx.text ?? '', value.entries);
+
+  if (asked?.kind === 'known') {
+    return { candidates: numberCandidates(asked.entry.years, ctx), skill: asked.entry.name };
+  }
+
+  if (asked?.kind === 'unlisted') {
+    return { candidates: [], problem: 'unlisted-skill', skill: asked.name };
+  }
+
+  if (!Number.isFinite(value.totalYears) || value.totalYears <= 0) return EMPTY;
+  return { candidates: numberCandidates(value.totalYears, ctx) };
+}
+
+/** El numero pelado primero; las formas con unidad ayudan en los desplegables. */
+function numberCandidates(years: number, ctx: ResolveContext): string[] {
+  const plain = String(years);
+  if (ctx.numeric) return [plain];
+  return [plain, `${years}+`, ctx.lang === 'en' ? `${years} years` : `${years} años`];
 }
 
 /* --------------------------------- texto --------------------------------- */

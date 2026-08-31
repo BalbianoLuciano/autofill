@@ -33,7 +33,7 @@ export type FieldKey =
   | 'coverLetter' | 'howDidYouHear' | 'referralName'
   | 'gender' | 'ethnicity' | 'veteranStatus' | 'disabilityStatus';
 
-export type FieldKind = 'text' | 'choice' | 'salary' | 'regions';
+export type FieldKind = 'text' | 'choice' | 'salary' | 'regions' | 'skills';
 
 export interface ChoiceOption {
   code: string;
@@ -238,11 +238,18 @@ export const FIELDS: FieldDef[] = [
   },
   {
     key: 'yearsExperience',
+    kind: 'skills',
     aliases: [
       'years of experience', 'years experience', 'yoe', 'total experience',
       'how many years', 'years of relevant experience', 'experience years',
       'anos de experiencia', 'años de experiencia', 'anios de experiencia',
-      'cuantos anos de experiencia',
+      'cuantos anos de experiencia', 'anos de experiencia con',
+      'years of experience with',
+      // La forma corta, que es como los formularios de IT preguntan por cada
+      // tecnologia: "¿Cuantos anios con React?", "Years with Kubernetes".
+      'cuantos anos con', 'cuantos años con', 'anos con', 'años con',
+      'anos usando', 'años usando', 'years with', 'how many years with',
+      'years using',
     ],
   },
   {

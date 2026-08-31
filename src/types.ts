@@ -59,7 +59,33 @@ export interface RegionsValue {
   codes: RegionCode[];
 }
 
-export type ProfileValue = TextValue | ChoiceValue | SalaryValue | RegionsValue;
+export interface SkillEntry {
+  /** Como la escribis vos: "React", "Node.js", "AWS". */
+  name: string;
+  years: number;
+}
+
+/**
+ * Anios de experiencia, general y por tecnologia.
+ *
+ * Es un solo campo y no dos porque son la misma pregunta con distinta
+ * precision: "cuantos anios de experiencia" y "cuantos anios con React" se
+ * resuelven leyendo el label, igual que el permiso de trabajo se resuelve
+ * leyendo de que pais habla la pregunta.
+ */
+export interface SkillsValue {
+  kind: 'skills';
+  /** Experiencia profesional total, para cuando la pregunta es general. */
+  totalYears: number;
+  entries: SkillEntry[];
+}
+
+export type ProfileValue =
+  | TextValue
+  | ChoiceValue
+  | SalaryValue
+  | RegionsValue
+  | SkillsValue;
 
 export type Profile = Partial<Record<FieldKey, ProfileValue>>;
 
@@ -124,6 +150,7 @@ export type SkipReason =
   | 'sensitive'      // se reconocio, pero no se rellena solo
   | 'no-value'       // se reconocio, pero el perfil no tiene ese dato
   | 'no-currency'    // pide una moneda que el perfil no tiene cargada
+  | 'unlisted-skill' // pregunta por una tecnologia que no esta en tu perfil
   | 'no-option'      // es un select/radio y ninguna opcion se parecio al valor
   | 'needs-answer'   // pregunta abierta sin respuesta guardada: la contestas vos
   | 'already-filled' // ya tenia contenido y no se pisa sin permiso
@@ -134,6 +161,8 @@ export interface FilledField {
   signature: FieldSignature;
   label: string;
   value: string;
+  /** La tecnologia por la que preguntaba, si preguntaba por alguna. */
+  skill?: string;
   /** Con que paso de la cascada se reconocio (§5 del spec). */
   via: MatchSource;
 }
@@ -152,6 +181,8 @@ export interface SkippedField {
   suggestion?: string;
   /** Para selects sin opcion parecida: que opciones habia. */
   options?: string[];
+  /** La tecnologia por la que preguntaba y no tenes cargada. */
+  skill?: string;
 }
 
 export type MatchSource =

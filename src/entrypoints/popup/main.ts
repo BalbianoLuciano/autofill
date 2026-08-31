@@ -15,7 +15,8 @@ import {
 import { deleteCv, listCvs, pickCv, readCv, renameCv, saveCv } from '../../core/cvs';
 import type {
   Currency, CustomQuestion, CvMeta, CvRole, FilledField, FillReport, Lang,
-  Period, Profile, ProfileValue, RegionCode, SalaryEntry, Settings, SkippedField,
+  Period, Profile, ProfileValue, RegionCode, SalaryEntry, Settings, SkillEntry,
+  SkippedField,
 } from '../../types';
 import {
   CURRENCY_LABELS, FIELD_HINTS, FIELD_LABELS, GROUPS, LANG_LABELS,
@@ -162,6 +163,58 @@ function salaryControls(key: FieldKey, value: ProfileValue | undefined): Node[] 
   return rows;
 }
 
+/**
+ * La matriz de tecnologias.
+ *
+ * Un total general arriba, y debajo una fila por tecnologia. Es lo que evita
+ * que "¿cuantos anios con Kubernetes?" se conteste con tu total.
+ */
+function skillsControls(key: FieldKey, value: ProfileValue | undefined): Node[] {
+  const current = value?.kind === 'skills' ? value : undefined;
+
+  const total = el('input', {
+    type: 'text', inputMode: 'numeric', name: `${key}.total`, placeholder: '5',
+  });
+  total.value = current?.totalYears ? String(current.totalYears) : '';
+
+  const rows = el('div', { className: 'skill-rows' });
+
+  const addRow = (entry?: SkillEntry) => {
+    const row = el('div', { className: 'skill-row' });
+    row.dataset.skillRow = key;
+
+    const name = el('input', { type: 'text', className: 'skill-name', placeholder: 'React' });
+    name.value = entry?.name ?? '';
+
+    const years = el('input', {
+      type: 'text', className: 'skill-years', inputMode: 'numeric', placeholder: 'años',
+    });
+    years.value = entry ? String(entry.years) : '';
+
+    const remove = el('button', { className: 'link', type: 'button', textContent: '×' });
+    remove.addEventListener('click', () => row.remove());
+
+    row.append(name, years, remove);
+    rows.append(row);
+  };
+
+  for (const entry of current?.entries ?? []) addRow(entry);
+  // Un par de filas vacias, para que se pueda empezar a escribir sin clickear.
+  addRow();
+  addRow();
+
+  const add = el('button', { className: 'link', type: 'button', textContent: '+ otra tecnología' });
+  add.addEventListener('click', () => addRow());
+
+  return [
+    el('label', { className: 'hours' }, el('span', {}, 'Años de experiencia en total'), total),
+    el('span', { className: 'field-hint' },
+      'Por tecnología, para que cada pregunta reciba su número:'),
+    rows,
+    add,
+  ];
+}
+
 function regionsControl(key: FieldKey, value: ProfileValue | undefined): Node {
   const selected = new Set(value?.kind === 'regions' ? value.codes : []);
   const box = el('div', { className: 'regions' });
@@ -192,6 +245,9 @@ function renderProfileForm(values: Profile): void {
             break;
           case 'regions':
             fieldset.append(fieldWrapper(key, regionsControl(key, value)));
+            break;
+          case 'skills':
+            fieldset.append(fieldWrapper(key, ...skillsControls(key, value)));
             break;
           default:
             fieldset.append(fieldWrapper(key, ...textControls(key, value)));
@@ -246,6 +302,25 @@ function readProfileForm(): Profile {
           (v): v is string => typeof v === 'string',
         ) as RegionCode[];
         if (codes.length > 0) next[key] = { kind: 'regions', codes };
+        break;
+      }
+      case 'skills': {
+        // Las filas se leen del DOM y no del FormData: se agregan y se quitan
+        // sobre la marcha, asi que no hay indices fijos.
+        const entries: SkillEntry[] = [];
+        for (const row of profileForm.querySelectorAll<HTMLElement>(`[data-skill-row="${key}"]`)) {
+          const name = row.querySelector<HTMLInputElement>('.skill-name')?.value.trim() ?? '';
+          const years = Number(row.querySelector<HTMLInputElement>('.skill-years')?.value);
+          if (name && Number.isFinite(years) && years >= 0) entries.push({ name, years });
+        }
+        const total = Number(str(`${key}.total`));
+        if (entries.length > 0 || (Number.isFinite(total) && total > 0)) {
+          next[key] = {
+            kind: 'skills',
+            totalYears: Number.isFinite(total) ? total : 0,
+            entries,
+          };
+        }
         break;
       }
       default: {
@@ -677,6 +752,13 @@ function renderReports(frames: FrameReport[]): void {
     resultBox.append(section('warn', 'Sensibles, sin tocar', sensitive.map(suggestionItem)));
   }
 
+  const unlisted = skipped.filter((s) => s.reason === 'unlisted-skill');
+  if (unlisted.length > 0) {
+    resultBox.append(section('warn', 'Tecnologías sin cargar', unlisted.map(
+      (s) => item(s.skill ?? s.label, 'Agregala en Perfil → Años de experiencia'),
+    )));
+  }
+
   const noCurrency = skipped.filter((s) => s.reason === 'no-currency');
   if (noCurrency.length > 0) {
     resultBox.append(section('warn', 'Falta esa moneda', noCurrency.map(
@@ -732,7 +814,12 @@ function applyLine(outcome: FillReport['apply']): HTMLElement {
  * si no queda pegada para siempre en ese sitio.
  */
 function filledItem(field: LocatedFill): HTMLLIElement {
-  const li = item(FIELD_LABELS[field.key], field.value);
+  // Con la tecnologia a la vista se ve de un golpe que cada pregunta recibio
+  // su propio numero y no el total repetido.
+  const name = field.skill
+    ? `${FIELD_LABELS[field.key]} · ${field.skill}`
+    : FIELD_LABELS[field.key];
+  const li = item(name, field.value);
   if (field.via !== 'learned') return li;
 
   const forget = el('button', { className: 'link', textContent: 'Aprendido acá · olvidar' });

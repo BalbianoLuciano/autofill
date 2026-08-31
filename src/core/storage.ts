@@ -122,10 +122,26 @@ export function sanitizeProfile(profile: Profile | undefined): Profile {
   const clean: Profile = {};
   for (const [key, value] of Object.entries(profile ?? {})) {
     if (!VALID_KEYS.has(key) || !value || typeof value !== 'object') continue;
-    const sanitized = sanitizeValue(key as FieldKey, value as ProfileValue);
+    const sanitized = sanitizeValue(key as FieldKey, adapt(key as FieldKey, value as ProfileValue));
     if (sanitized) clean[key as FieldKey] = sanitized;
   }
   return clean;
+}
+
+/**
+ * Un valor guardado con un tipo que despues cambio.
+ *
+ * `yearsExperience` era texto plano y paso a ser una matriz de tecnologias. El
+ * numero que ya estaba cargado se conserva como total general.
+ */
+function adapt(key: FieldKey, value: ProfileValue): ProfileValue {
+  if (kindOf(key) !== 'skills' || value.kind !== 'text') return value;
+  const years = Number((value.es ?? value.en ?? '').replace(/[^\d.]/g, ''));
+  return {
+    kind: 'skills',
+    totalYears: Number.isFinite(years) ? years : 0,
+    entries: [],
+  };
 }
 
 function sanitizeValue(key: FieldKey, value: ProfileValue): ProfileValue | null {
@@ -155,6 +171,14 @@ function sanitizeValue(key: FieldKey, value: ProfileValue): ProfileValue | null 
     case 'regions': {
       const codes = (value.codes ?? []).filter((c) => c in REGION_WORDS);
       return codes.length > 0 ? { kind: 'regions', codes } : null;
+    }
+    case 'skills': {
+      const entries = (value.entries ?? [])
+        .filter((e) => e?.name?.trim() && Number.isFinite(e.years) && e.years >= 0)
+        .map((e) => ({ name: e.name.trim(), years: e.years }));
+      const total = Number.isFinite(value.totalYears) ? value.totalYears : 0;
+      if (total <= 0 && entries.length === 0) return null;
+      return { kind: 'skills', totalYears: total, entries };
     }
     default:
       return null;
@@ -205,6 +229,14 @@ export function migrateFromV1(old: Record<string, string> | undefined): Profile 
       case 'salary': {
         const entries = parseSalary(text);
         if (entries.length > 0) profile[key] = { kind: 'salary', entries, hoursPerMonth: 160 };
+        break;
+      }
+
+      case 'skills': {
+        const years = Number(text.replace(/[^\d.]/g, ''));
+        if (Number.isFinite(years) && years > 0) {
+          profile[key] = { kind: 'skills', totalYears: years, entries: [] };
+        }
         break;
       }
 
