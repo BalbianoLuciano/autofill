@@ -7,23 +7,28 @@
  */
 
 import { browser } from 'wxt/browser';
-import { FIELDS, FIELD_BY_KEY, type FieldKey } from '../../core/fields';
+import { FIELDS, FIELD_BY_KEY, kindOf, type FieldKey } from '../../core/fields';
 import {
-  clearAll,
-  exportJson,
-  forgetMapping,
-  getMappings,
-  getStore,
-  importJson,
-  learnMapping,
-  saveProfile,
-  saveSettings,
+  clearAll, exportJson, forgetMapping, getMappings, getStore, importJson,
+  learnMapping, saveProfile, saveSettings,
 } from '../../core/storage';
-import type { FilledField, FillReport, Profile, SkippedField } from '../../types';
-import { FIELD_LABELS, GROUPS, SKIP_REASON_LABELS } from './labels';
+import type {
+  Currency, FilledField, FillReport, Lang, Period, Profile, ProfileValue,
+  RegionCode, SalaryEntry, Settings, SkippedField,
+} from '../../types';
+import {
+  CURRENCY_LABELS, FIELD_HINTS, FIELD_LABELS, GROUPS, LANG_LABELS,
+  PERIOD_LABELS, REGION_LABELS, SKIP_REASON_LABELS,
+} from './labels';
 
 /** El motor compilado. WXT lo publica en la raiz del paquete. */
 const ENGINE = '/autofill.js';
+
+const CURRENCIES: Currency[] = ['USD', 'ARS', 'EUR'];
+const PERIODS: Period[] = ['hour', 'month', 'year'];
+const REGIONS: RegionCode[] = ['AR', 'ES', 'EU', 'US', 'UK', 'CA', 'MX', 'BR'];
+/** Cuantas monedas se pueden cargar para un mismo sueldo. */
+const SALARY_ROWS = 2;
 
 interface FrameReport {
   frameId: number;
@@ -36,6 +41,16 @@ const $ = <T extends HTMLElement>(selector: string): T => {
   return el;
 };
 
+const el = <K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Partial<HTMLElementTagNameMap[K]> = {},
+  ...children: (Node | string)[]
+): HTMLElementTagNameMap[K] => {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+};
+
 const runButton = $<HTMLButtonElement>('#run');
 const resultBox = $<HTMLDivElement>('#result');
 const siteLine = $<HTMLParagraphElement>('#site');
@@ -43,6 +58,7 @@ const profileForm = $<HTMLFormElement>('#profile-form');
 const profileStatus = $<HTMLParagraphElement>('#profile-status');
 
 let profile: Profile = {};
+let settings: Settings;
 
 /* ---------------------------------- tabs ---------------------------------- */
 
@@ -56,32 +72,125 @@ for (const tab of document.querySelectorAll<HTMLButtonElement>('nav button')) {
   });
 }
 
-/* --------------------------------- perfil --------------------------------- */
+/* ---------------------------- editor del perfil ---------------------------- */
+
+function fieldWrapper(key: FieldKey, ...controls: Node[]): HTMLElement {
+  const def = FIELD_BY_KEY.get(key);
+  const wrapper = el('div', { className: def?.sensitive ? 'field sensitive' : 'field' });
+  wrapper.append(el('span', { className: 'field-name' }, FIELD_LABELS[key]));
+
+  const hint = FIELD_HINTS[key];
+  if (hint) wrapper.append(el('span', { className: 'field-hint' }, hint));
+
+  wrapper.append(...controls);
+  return wrapper;
+}
+
+function textControls(key: FieldKey, value: ProfileValue | undefined): Node[] {
+  const def = FIELD_BY_KEY.get(key);
+  const current = value?.kind === 'text' ? value : undefined;
+  const make = (lang: Lang) => {
+    const input = def?.multiline
+      ? el('textarea', { name: `${key}.${lang}` })
+      : el('input', { type: 'text', name: `${key}.${lang}` });
+    input.value = current?.[lang] ?? '';
+    return input;
+  };
+
+  if (!def?.localized) return [make('es')];
+
+  // Dos idiomas al lado: la pagina decide cual se usa. Si falta el ingles, se
+  // cae al castellano, asi que dejarlo vacio no rompe nada.
+  return [
+    el('div', { className: 'bilingual' },
+      el('label', { className: 'lang-slot' }, el('span', {}, 'ES'), make('es')),
+      el('label', { className: 'lang-slot' }, el('span', {}, 'EN'), make('en')),
+    ),
+  ];
+}
+
+function choiceControl(key: FieldKey, value: ProfileValue | undefined): Node {
+  const select = el('select', { name: key });
+  select.append(new Option('—', ''));
+  for (const option of FIELD_BY_KEY.get(key)?.options ?? []) {
+    select.append(new Option(option.es, option.code));
+  }
+  if (value?.kind === 'choice') select.value = value.code;
+  return select;
+}
+
+function salaryControls(key: FieldKey, value: ProfileValue | undefined): Node[] {
+  const current = value?.kind === 'salary' ? value : undefined;
+  const rows: Node[] = [];
+
+  for (let i = 0; i < SALARY_ROWS; i++) {
+    const entry: SalaryEntry | undefined = current?.entries[i];
+
+    const amount = el('input', {
+      type: 'text',
+      inputMode: 'numeric',
+      name: `${key}.${i}.amount`,
+      placeholder: i === 0 ? 'Monto' : 'Otra moneda (opcional)',
+    });
+    amount.value = entry ? String(entry.amount) : '';
+
+    const currency = el('select', { name: `${key}.${i}.currency` });
+    for (const code of CURRENCIES) currency.append(new Option(CURRENCY_LABELS[code], code));
+    currency.value = entry?.currency ?? (i === 0 ? 'USD' : 'ARS');
+
+    const period = el('select', { name: `${key}.${i}.period` });
+    for (const code of PERIODS) period.append(new Option(PERIOD_LABELS[code], code));
+    period.value = entry?.period ?? 'month';
+
+    rows.push(el('div', { className: 'salary-row' }, amount, currency, period));
+  }
+
+  const hours = el('input', { type: 'text', inputMode: 'numeric', name: `${key}.hours` });
+  hours.value = String(current?.hoursPerMonth ?? 160);
+  rows.push(
+    el('label', { className: 'hours' },
+      el('span', {}, 'Horas por mes, para calcular la tarifa horaria'),
+      hours,
+    ),
+  );
+
+  return rows;
+}
+
+function regionsControl(key: FieldKey, value: ProfileValue | undefined): Node {
+  const selected = new Set(value?.kind === 'regions' ? value.codes : []);
+  const box = el('div', { className: 'regions' });
+
+  for (const code of REGIONS) {
+    const input = el('input', { type: 'checkbox', name: `${key}.region`, value: code });
+    input.checked = selected.has(code);
+    box.append(el('label', { className: 'region' }, input, el('span', {}, REGION_LABELS[code])));
+  }
+
+  return box;
+}
 
 function renderProfileForm(values: Profile): void {
   profileForm.replaceChildren(
     ...GROUPS.map((group) => {
-      const fieldset = document.createElement('fieldset');
-      const legend = document.createElement('legend');
-      legend.textContent = group.title;
-      fieldset.append(legend);
+      const fieldset = el('fieldset', {}, el('legend', {}, group.title));
+      if (group.note) fieldset.append(el('p', { className: 'group-note' }, group.note));
 
       for (const key of group.keys) {
-        const def = FIELD_BY_KEY.get(key);
-        const wrapper = document.createElement('label');
-        wrapper.className = def?.sensitive ? 'field sensitive' : 'field';
-
-        const caption = document.createElement('span');
-        caption.textContent = FIELD_LABELS[key];
-
-        const input = def?.multiline
-          ? document.createElement('textarea')
-          : Object.assign(document.createElement('input'), { type: 'text' });
-        input.name = key;
-        input.value = values[key] ?? '';
-
-        wrapper.append(caption, input);
-        fieldset.append(wrapper);
+        const value = values[key];
+        switch (kindOf(key)) {
+          case 'choice':
+            fieldset.append(fieldWrapper(key, choiceControl(key, value)));
+            break;
+          case 'salary':
+            fieldset.append(fieldWrapper(key, ...salaryControls(key, value)));
+            break;
+          case 'regions':
+            fieldset.append(fieldWrapper(key, regionsControl(key, value)));
+            break;
+          default:
+            fieldset.append(fieldWrapper(key, ...textControls(key, value)));
+        }
       }
       return fieldset;
     }),
@@ -91,10 +200,57 @@ function renderProfileForm(values: Profile): void {
 function readProfileForm(): Profile {
   const data = new FormData(profileForm);
   const next: Profile = {};
+  const str = (name: string) => {
+    const value = data.get(name);
+    return typeof value === 'string' ? value.trim() : '';
+  };
+
   for (const field of FIELDS) {
-    const value = data.get(field.key);
-    if (typeof value === 'string' && value.trim()) next[field.key] = value.trim();
+    const key = field.key;
+    switch (kindOf(key)) {
+      case 'choice': {
+        const code = str(key);
+        if (code) next[key] = { kind: 'choice', code };
+        break;
+      }
+      case 'salary': {
+        const entries: SalaryEntry[] = [];
+        for (let i = 0; i < SALARY_ROWS; i++) {
+          // Se aceptan `3.500.000` y `3 500 000`: separar miles es lo natural
+          // al escribir un sueldo, y guardarlo asi rompe la conversion.
+          const amount = Number(str(`${key}.${i}.amount`).replace(/[.,\s]/g, ''));
+          if (!Number.isFinite(amount) || amount <= 0) continue;
+          entries.push({
+            amount,
+            currency: (str(`${key}.${i}.currency`) || 'USD') as Currency,
+            period: (str(`${key}.${i}.period`) || 'month') as Period,
+          });
+        }
+        if (entries.length > 0) {
+          const hours = Number(str(`${key}.hours`));
+          next[key] = {
+            kind: 'salary',
+            entries,
+            hoursPerMonth: Number.isFinite(hours) && hours > 0 ? hours : 160,
+          };
+        }
+        break;
+      }
+      case 'regions': {
+        const codes = data.getAll(`${key}.region`).filter(
+          (v): v is string => typeof v === 'string',
+        ) as RegionCode[];
+        if (codes.length > 0) next[key] = { kind: 'regions', codes };
+        break;
+      }
+      default: {
+        const es = str(`${key}.es`);
+        const en = str(`${key}.en`);
+        if (es || en) next[key] = { kind: 'text', ...(es ? { es } : {}), ...(en ? { en } : {}) };
+      }
+    }
   }
+
   return next;
 }
 
@@ -104,6 +260,8 @@ function setStatus(text: string, kind: 'ok' | 'error' = 'ok'): void {
   if (text) window.setTimeout(() => (profileStatus.textContent = ''), 2600);
 }
 
+/* ------------------------------- ajustes -------------------------------- */
+
 $<HTMLButtonElement>('#save').addEventListener('click', async () => {
   profile = readProfileForm();
   await saveProfile(profile);
@@ -111,12 +269,21 @@ $<HTMLButtonElement>('#save').addEventListener('click', async () => {
 });
 
 $<HTMLInputElement>('#fill-sensitive').addEventListener('change', (event) => {
-  void saveSettings({ fillSensitive: (event.target as HTMLInputElement).checked });
+  settings.fillSensitive = (event.target as HTMLInputElement).checked;
+  void saveSettings({ fillSensitive: settings.fillSensitive });
 });
 
 $<HTMLInputElement>('#overwrite-filled').addEventListener('change', (event) => {
-  void saveSettings({ overwriteFilled: (event.target as HTMLInputElement).checked });
+  settings.overwriteFilled = (event.target as HTMLInputElement).checked;
+  void saveSettings({ overwriteFilled: settings.overwriteFilled });
 });
+
+$<HTMLSelectElement>('#language').addEventListener('change', (event) => {
+  settings.language = (event.target as HTMLSelectElement).value as Settings['language'];
+  void saveSettings({ language: settings.language });
+});
+
+/* --------------------------- exportar / importar --------------------------- */
 
 $<HTMLButtonElement>('#export').addEventListener('click', async () => {
   const json = await exportJson();
@@ -152,11 +319,9 @@ clearButton.addEventListener('click', async () => {
   await clearAll();
   profile = {};
   renderProfileForm(profile);
-  $<HTMLInputElement>('#fill-sensitive').checked = false;
-  $<HTMLInputElement>('#overwrite-filled').checked = false;
   clearButton.dataset.armed = 'false';
   clearButton.textContent = 'Borrar todo';
-  setStatus('Se borro el perfil y todo lo aprendido.');
+  setStatus('Se borró el perfil y todo lo aprendido.');
 });
 
 const importInput = $<HTMLInputElement>('#import-file');
@@ -169,9 +334,9 @@ importInput.addEventListener('change', async () => {
   try {
     const store = await importJson(await file.text());
     profile = store.profile;
+    settings = store.settings;
     renderProfileForm(profile);
-    $<HTMLInputElement>('#fill-sensitive').checked = store.settings.fillSensitive;
-    $<HTMLInputElement>('#overwrite-filled').checked = store.settings.overwriteFilled;
+    reflectSettings();
     setStatus('Perfil importado.');
   } catch (error) {
     setStatus(error instanceof Error ? error.message : 'No se pudo leer el archivo.', 'error');
@@ -199,7 +364,7 @@ runButton.addEventListener('click', async () => {
 
 async function runOnActiveTab(): Promise<FrameReport[]> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) throw new Error('No hay una pestana activa.');
+  if (!tab?.id) throw new Error('No hay una pestaña activa.');
 
   // allFrames porque casi todos los ATS embebidos viven en un iframe: el
   // formulario de Greenhouse dentro de la web de la empresa es el caso tipico.
@@ -210,6 +375,7 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
 
   const store = await getStore();
   profile = store.profile;
+  settings = store.settings;
 
   const reports = await Promise.all(
     injections.map(async ({ frameId }): Promise<FrameReport | null> => {
@@ -224,8 +390,7 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
             type: 'AUTOFILL_RUN',
             profile: store.profile,
             mappings: await getMappings(hostname),
-            fillSensitive: store.settings.fillSensitive,
-            overwriteFilled: store.settings.overwriteFilled,
+            settings: store.settings,
           },
           { frameId },
         )) as FillReport;
@@ -244,7 +409,18 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
 
 /* -------------------------------- resultado -------------------------------- */
 
+type LocatedFill = FilledField & { hostname: string };
+type LocatedSkip = SkippedField & { frameId: number; hostname: string };
+
 function renderReports(frames: FrameReport[]): void {
+  if (frames.length === 0) {
+    resultBox.append(
+      el('p', { className: 'empty' },
+        'No se pudo leer esta página. Chrome bloquea sus páginas internas y la Chrome Web Store.'),
+    );
+    return;
+  }
+
   const filled = frames.flatMap((f) =>
     f.report.filled.map((item) => ({ ...item, hostname: f.report.hostname })),
   );
@@ -252,70 +428,52 @@ function renderReports(frames: FrameReport[]): void {
     f.report.skipped.map((s) => ({ ...s, frameId: f.frameId, hostname: f.report.hostname })),
   );
 
-  if (frames.length === 0) {
-    resultBox.append(
-      paragraph(
-        'empty',
-        'No se pudo leer esta pagina. Chrome bloquea las paginas internas del navegador y la Chrome Web Store.',
-      ),
-    );
-    return;
-  }
-
-  const summary = document.createElement('p');
-  summary.className = 'summary';
-  summary.append(strongCount(filled.length), document.createTextNode(plural(filled.length)));
+  const summary = el('p', { className: 'summary' });
+  summary.append(
+    el('strong', {}, String(filled.length)),
+    ` ${filled.length === 1 ? 'campo completado' : 'campos completados'}`,
+    el('span', { className: 'lang-badge' },
+      frames[0]!.report.lang === 'es' ? 'formulario en español' : 'formulario en inglés'),
+  );
   resultBox.append(summary);
 
   if (filled.length > 0) {
     resultBox.append(section('ok', 'Completados', filled.map(filledItem)));
   }
 
+  // Los sensibles traen la sugerencia ya resuelta al periodo y la moneda que
+  // pide este formulario: es lo que hay que copiar, no lo que esta guardado.
   const sensitive = skipped.filter((s) => s.reason === 'sensitive');
   if (sensitive.length > 0) {
-    resultBox.append(
-      section(
-        'warn',
-        'Sensibles, sin tocar',
-        sensitive.map((s) => item(s.label || FIELD_LABELS[s.key!], 'Resaltado en naranja')),
-      ),
-    );
+    resultBox.append(section('warn', 'Sensibles, sin tocar', sensitive.map(suggestionItem)));
+  }
+
+  const noCurrency = skipped.filter((s) => s.reason === 'no-currency');
+  if (noCurrency.length > 0) {
+    resultBox.append(section('warn', 'Falta esa moneda', noCurrency.map(
+      (s) => item(s.label, 'Pide una moneda que no tenés cargada en el perfil'),
+    )));
   }
 
   const noOption = skipped.filter((s) => s.reason === 'no-option');
   if (noOption.length > 0) {
-    resultBox.append(
-      section(
-        'warn',
-        'Sin opcion parecida',
-        noOption.map((s) => item(s.label, (s.options ?? []).slice(0, 6).join(' · '))),
-      ),
-    );
+    resultBox.append(section('warn', 'Sin opción parecida', noOption.map(
+      (s) => item(s.label, (s.options ?? []).slice(0, 6).join(' · ')),
+    )));
   }
 
   const unmapped = skipped.filter((s) => s.reason === 'unmapped');
   if (unmapped.length > 0) {
-    resultBox.append(
-      section('idle', 'Sin reconocer', unmapped.map(unmappedItem)),
-    );
+    resultBox.append(section('idle', 'Sin reconocer', unmapped.map(unmappedItem)));
   }
 
-  const other = skipped.filter(
-    (s) => s.reason === 'no-value' || s.reason === 'already-filled',
-  );
+  const other = skipped.filter((s) => s.reason === 'no-value' || s.reason === 'already-filled');
   if (other.length > 0) {
-    resultBox.append(
-      section(
-        'idle',
-        'Salteados',
-        other.map((s) => item(s.label || FIELD_LABELS[s.key!], SKIP_REASON_LABELS[s.reason])),
-      ),
-    );
+    resultBox.append(section('idle', 'Salteados', other.map(
+      (s) => item(s.label || FIELD_LABELS[s.key!], SKIP_REASON_LABELS[s.reason]),
+    )));
   }
 }
-
-type LocatedFill = FilledField & { hostname: string };
-type LocatedSkip = SkippedField & { frameId: number; hostname: string };
 
 /**
  * Un campo completado. Si vino de un mapping aprendido lleva un boton para
@@ -326,9 +484,7 @@ function filledItem(field: LocatedFill): HTMLLIElement {
   const li = item(FIELD_LABELS[field.key], field.value);
   if (field.via !== 'learned') return li;
 
-  const forget = document.createElement('button');
-  forget.className = 'link';
-  forget.textContent = 'Aprendido acá · olvidar';
+  const forget = el('button', { className: 'link', textContent: 'Aprendido acá · olvidar' });
   forget.addEventListener('click', async () => {
     await forgetMapping(field.hostname, field.signature);
     forget.textContent = 'Olvidado. Se vuelve a adivinar la próxima.';
@@ -339,16 +495,32 @@ function filledItem(field: LocatedFill): HTMLLIElement {
   return li;
 }
 
+/** Un sensible, con el valor que corresponde y un boton para copiarlo. */
+function suggestionItem(skip: LocatedSkip): HTMLLIElement {
+  const li = item(skip.label || FIELD_LABELS[skip.key!], skip.suggestion ?? 'Resaltado en naranja');
+  if (!skip.suggestion) return li;
+
+  const copy = el('button', { className: 'link', textContent: 'Copiar' });
+  copy.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(skip.suggestion!);
+    copy.textContent = 'Copiado';
+    window.setTimeout(() => (copy.textContent = 'Copiar'), 1600);
+  });
+
+  li.append(copy);
+  return li;
+}
+
 /**
  * Un campo sin reconocer, con un desplegable para asignarlo.
  *
- * Esto es el aprendizaje: al elegir se guarda el mapping para ese hostname y se
- * rellena en el momento. La proxima vez en ese sitio ya lo sabe.
+ * Al elegir se guarda el mapping para ese hostname y se rellena en el momento.
+ * La proxima vez en ese sitio ya lo sabe.
  */
 function unmappedItem(skip: LocatedSkip): HTMLLIElement {
   const li = item(skip.label || skip.signature, skip.signature);
 
-  const select = document.createElement('select');
+  const select = el('select', {});
   select.append(new Option('Asignar a…', ''));
   for (const field of FIELDS) select.append(new Option(FIELD_LABELS[field.key], field.key));
 
@@ -357,26 +529,18 @@ function unmappedItem(skip: LocatedSkip): HTMLLIElement {
     if (!key) return;
 
     await learnMapping(skip.hostname, skip.signature, key);
-    const value = profile[key];
-
-    if (!value) {
-      li.querySelector('.meta')!.textContent = `Aprendido. Falta el dato en el perfil.`;
-      select.disabled = true;
-      return;
-    }
-
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
       await browser.tabs
         .sendMessage(
           tab.id,
-          { type: 'AUTOFILL_APPLY_LEARNED', signature: skip.signature, key, value },
+          { type: 'AUTOFILL_APPLY_LEARNED', signature: skip.signature, key, profile, settings },
           { frameId: skip.frameId },
         )
         .catch(() => undefined);
     }
 
-    li.querySelector('.meta')!.textContent = `Aprendido: ${FIELD_LABELS[key]} · ${value}`;
+    li.querySelector('.meta')!.textContent = `Aprendido: ${FIELD_LABELS[key]}`;
     select.disabled = true;
   });
 
@@ -385,72 +549,55 @@ function unmappedItem(skip: LocatedSkip): HTMLLIElement {
 }
 
 function section(dot: 'ok' | 'warn' | 'idle', title: string, items: HTMLLIElement[]): HTMLDivElement {
-  const group = document.createElement('div');
-  group.className = 'group';
-
-  const heading = document.createElement('h2');
-  const marker = document.createElement('span');
-  marker.className = `dot ${dot}`;
-  heading.append(marker, document.createTextNode(`${title} (${items.length})`));
-
-  const list = document.createElement('ul');
+  const heading = el('h2', {},
+    el('span', { className: `dot ${dot}` }),
+    `${title} (${items.length})`,
+  );
+  const list = el('ul', {});
   list.append(...items);
-
-  group.append(heading, list);
-  return group;
+  return el('div', { className: 'group' }, heading, list);
 }
 
 function item(label: string, meta: string): HTMLLIElement {
-  const li = document.createElement('li');
-  const name = document.createElement('span');
-  name.className = 'label';
-  name.textContent = label || '(sin etiqueta)';
-  const detail = document.createElement('span');
-  detail.className = 'meta';
-  detail.textContent = meta;
-  li.append(name, detail);
-  return li;
-}
-
-function paragraph(className: string, text: string): HTMLParagraphElement {
-  const p = document.createElement('p');
-  p.className = className;
-  p.textContent = text;
-  return p;
-}
-
-function strongCount(count: number): HTMLElement {
-  const strong = document.createElement('strong');
-  strong.textContent = String(count);
-  return strong;
-}
-
-function plural(count: number): string {
-  return count === 1 ? ' campo completado' : ' campos completados';
+  return el('li', {},
+    el('span', { className: 'label' }, label || '(sin etiqueta)'),
+    el('span', { className: 'meta' }, meta),
+  );
 }
 
 function renderError(error: unknown): void {
   const message =
     error instanceof Error && /cannot access|Extension manifest|chrome:\/\//i.test(error.message)
-      ? 'Chrome no deja actuar en esta pagina. Proba en el formulario de la aplicacion.'
+      ? 'Chrome no deja actuar en esta página. Probá en el formulario de la aplicación.'
       : error instanceof Error
         ? error.message
-        : 'Algo salio mal.';
-  resultBox.append(paragraph('error', message));
+        : 'Algo salió mal.';
+  resultBox.append(el('p', { className: 'error' }, message));
 }
 
 /* --------------------------------- arranque --------------------------------- */
+
+function reflectSettings(): void {
+  $<HTMLInputElement>('#fill-sensitive').checked = settings.fillSensitive;
+  $<HTMLInputElement>('#overwrite-filled').checked = settings.overwriteFilled;
+  $<HTMLSelectElement>('#language').value = settings.language;
+}
 
 async function init(): Promise<void> {
   if (new URLSearchParams(location.search).has('onboarding')) {
     document.body.classList.add('as-tab');
   }
 
+  const languageSelect = $<HTMLSelectElement>('#language');
+  for (const value of ['auto', 'es', 'en'] as const) {
+    languageSelect.append(new Option(LANG_LABELS[value], value));
+  }
+
   const store = await getStore();
   profile = store.profile;
+  settings = store.settings;
   renderProfileForm(profile);
-  $<HTMLInputElement>('#fill-sensitive').checked = store.settings.fillSensitive;
-  $<HTMLInputElement>('#overwrite-filled').checked = store.settings.overwriteFilled;
+  reflectSettings();
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   try {
