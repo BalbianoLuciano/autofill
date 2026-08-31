@@ -1,40 +1,48 @@
 /**
- * El motor de punta a punta: que los seis sensibles no se rellenen solos es
- * la regla que mas caro sale romper.
+ * El motor de punta a punta: que los sensibles no se rellenen solos es la
+ * regla que mas caro sale romper.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runFill, applyLearned } from './engine';
-import type { Profile } from '../types';
+import type { Profile, Settings } from '../types';
 
 const PROFILE: Profile = {
-  firstName: 'Ada',
-  lastName: 'Lovelace',
-  email: 'ada@example.com',
-  phone: '+34 600 000 000',
-  country: 'Argentina',
-  salaryExpectation: '60000',
-  address: 'Calle Falsa 123',
-  yearsExperience: '7',
+  firstName: { kind: 'text', es: 'Ada' },
+  lastName: { kind: 'text', es: 'Lovelace' },
+  email: { kind: 'text', es: 'ada@example.com' },
+  country: { kind: 'text', es: 'España', en: 'Spain' },
+  currentTitle: { kind: 'text', es: 'Ingeniera', en: 'Engineer' },
+  englishLevel: { kind: 'choice', code: 'c1' },
+  noticePeriod: { kind: 'choice', code: 'immediate' },
+  address: { kind: 'text', es: 'Calle Falsa 123' },
+  workAuthorization: { kind: 'regions', codes: ['ES'] },
+  salaryExpectation: {
+    kind: 'salary',
+    hoursPerMonth: 160,
+    entries: [{ amount: 2500, currency: 'USD', period: 'month' }],
+  },
 };
 
-function render(html: string): void {
+const SETTINGS: Settings = {
+  fillSensitive: false,
+  overwriteFilled: false,
+  language: 'auto',
+};
+
+function render(html: string, lang = 'en'): void {
+  document.documentElement.setAttribute('lang', lang);
   document.body.innerHTML = html;
-  for (const el of document.querySelectorAll('input, textarea, select')) {
-    el.getClientRects = () => [{ width: 100, height: 20 }] as unknown as DOMRectList;
+  for (const node of document.querySelectorAll('input, textarea, select')) {
+    node.getClientRects = () => [{ width: 100, height: 20 }] as unknown as DOMRectList;
   }
 }
 
-const run = (overrides: Partial<Parameters<typeof runFill>[0]> = {}) =>
-  runFill({
-    profile: PROFILE,
-    mappings: {},
-    fillSensitive: false,
-    overwriteFilled: false,
-    ...overrides,
-  });
+const run = (overrides: Partial<Settings> = {}) =>
+  runFill({ profile: PROFILE, mappings: {}, settings: { ...SETTINGS, ...overrides } });
 
 const input = (name: string) => document.querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+const select = (name: string) => document.querySelector<HTMLSelectElement>(`[name="${name}"]`)!;
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -54,34 +62,92 @@ describe('runFill', () => {
     expect(report.filled.map((f) => f.key).sort()).toEqual(['email', 'firstName']);
   });
 
-  it('no toca los sensibles y los marca', () => {
+  it('responde en el idioma del formulario', () => {
+    render(`<label for="a">Country</label><input id="a" name="country">`, 'en');
+    run();
+    expect(input('country').value).toBe('Spain');
+
+    render(`<label for="a">País</label><input id="a" name="country">`, 'es');
+    run();
+    expect(input('country').value).toBe('España');
+  });
+
+  it('el ajuste de idioma le gana a la deteccion', () => {
+    render(`<label for="a">Country</label><input id="a" name="country">`, 'en');
+    run({ language: 'es' });
+    expect(input('country').value).toBe('España');
+  });
+
+  it('elige la opcion del select aunque este escrita distinto', () => {
     render(`
-      <label for="a">Expected Salary</label><input id="a" name="salary">
-      <label for="b">Street Address</label><input id="b" name="address">
+      <label for="a">English level</label>
+      <select id="a" name="english">
+        <option value=""></option>
+        <option value="1">Limited working proficiency</option>
+        <option value="2">Full professional proficiency</option>
+      </select>
     `);
 
+    run();
+
+    // El perfil guarda el codigo `c1`; el sinonimo es el que encuentra la opcion.
+    expect(select('english').value).toBe('2');
+  });
+
+  it('no toca los sensibles, pero deja resuelto que corresponde', () => {
+    render(`<label for="a">Expected annual salary (USD)</label><input id="a" name="salary">`);
+
     const report = run();
+    const skip = report.skipped.find((s) => s.key === 'salaryExpectation');
 
     expect(input('salary').value).toBe('');
-    expect(input('address').value).toBe('');
-    expect(report.filled).toHaveLength(0);
-    expect(report.skipped.map((s) => s.reason)).toEqual(['sensitive', 'sensitive']);
+    expect(skip?.reason).toBe('sensitive');
+    // 2500 por mes guardados, pero el formulario pide el anual.
+    expect(skip?.suggestion).toBe('30000');
     expect(input('salary').getAttribute('data-autofill')).toBe('sensitive');
   });
 
-  it('los rellena si la persona lo pidio explicitamente', () => {
-    render(`<label for="a">Expected Salary</label><input id="a" name="salary">`);
+  it('contesta el permiso de trabajo por si o por no', () => {
+    render(`
+      <fieldset>
+        <legend>Are you legally authorized to work in the EU?</legend>
+        <label><input type="radio" name="auth" value="yes"> Yes</label>
+        <label><input type="radio" name="auth" value="no"> No</label>
+      </fieldset>
+    `);
+
+    const report = run({ fillSensitive: true });
+
+    expect(document.querySelector<HTMLInputElement>('[value="yes"]')!.checked).toBe(true);
+    expect(report.filled.some((f) => f.key === 'workAuthorization')).toBe(true);
+  });
+
+  it('deduce el patrocinio del permiso de trabajo', () => {
+    render(`
+      <fieldset>
+        <legend>Will you require visa sponsorship in the United States?</legend>
+        <label><input type="radio" name="sp" value="yes"> Yes</label>
+        <label><input type="radio" name="sp" value="no"> No">
+      </fieldset>
+    `);
+
     run({ fillSensitive: true });
-    expect(input('salary').value).toBe('60000');
+
+    // Solo tiene permiso español, asi que en EE.UU. si necesita patrocinio.
+    expect(document.querySelector<HTMLInputElement>('[value="yes"]')!.checked).toBe(true);
+  });
+
+  it('avisa cuando pide una moneda que no esta cargada', () => {
+    render(`<label for="a">Expected salary in EUR</label><input id="a" name="salary">`);
+    const report = run({ fillSensitive: true });
+    expect(report.skipped.find((s) => s.key === 'salaryExpectation')?.reason).toBe('no-currency');
   });
 
   it('no pisa lo que ya estaba escrito', () => {
     render(`<label for="a">Email</label><input id="a" name="email" value="otro@mail.com">`);
-
     const report = run();
-
     expect(input('email').value).toBe('otro@mail.com');
-    expect(report.skipped[0]?.reason).toBe('already-filled');
+    expect(report.skipped.find((s) => s.key === 'email')?.reason).toBe('already-filled');
   });
 
   it('pisa cuando el ajuste lo permite', () => {
@@ -90,45 +156,9 @@ describe('runFill', () => {
     expect(input('email').value).toBe('ada@example.com');
   });
 
-  it('elige la opcion del select que se parece al valor', () => {
-    render(`
-      <label for="a">Country</label>
-      <select id="a" name="country">
-        <option value=""></option>
-        <option value="ar">Argentina</option>
-        <option value="es">Spain</option>
-      </select>
-    `);
-
-    run();
-
-    expect(document.querySelector<HTMLSelectElement>('[name="country"]')!.value).toBe('ar');
-  });
-
-  it('deja el select sin tocar si ninguna opcion se parece', () => {
-    render(`
-      <label for="a">Country</label>
-      <select id="a" name="country">
-        <option value=""></option>
-        <option value="de">Germany</option>
-        <option value="jp">Japan</option>
-      </select>
-    `);
-
-    const report = run();
-    const select = document.querySelector<HTMLSelectElement>('[name="country"]')!;
-
-    expect(select.value).toBe('');
-    expect(report.skipped[0]?.reason).toBe('no-option');
-    expect(report.skipped[0]?.options).toEqual(['Germany', 'Japan']);
-  });
-
   it('informa los que no reconoce, con su firma', () => {
     render(`<label for="a">Favorite dinosaur</label><input id="a" name="dino_q">`);
-
-    const report = run();
-
-    expect(report.skipped[0]).toMatchObject({
+    expect(run().skipped[0]).toMatchObject({
       reason: 'unmapped',
       signature: 'name:dino_q',
       label: 'Favorite dinosaur',
@@ -139,18 +169,22 @@ describe('runFill', () => {
     render(`<label for="a">GitHub</label><input id="a" name="github">`);
     expect(run().skipped[0]?.reason).toBe('no-value');
   });
+
+  it('reporta en que idioma leyo el formulario', () => {
+    render(`<label for="a">Email</label><input id="a" name="email">`, 'es');
+    expect(run().lang).toBe('es');
+  });
 });
 
 describe('applyLearned', () => {
   it('rellena el campo que la persona mapeo a mano', () => {
     render(`<label for="a">Favorite dinosaur</label><input id="a" name="dino_q">`);
-
-    expect(applyLearned('name:dino_q', 'city', 'Madrid')).toBe(true);
-    expect(input('dino_q').value).toBe('Madrid');
+    expect(applyLearned('name:dino_q', 'currentTitle', PROFILE, SETTINGS)).toBe(true);
+    expect(input('dino_q').value).toBe('Engineer');
   });
 
   it('devuelve false si el campo ya no esta', () => {
     render(`<input name="otro">`);
-    expect(applyLearned('name:dino_q', 'city', 'Madrid')).toBe(false);
+    expect(applyLearned('name:dino_q', 'currentTitle', PROFILE, SETTINGS)).toBe(false);
   });
 });
