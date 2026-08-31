@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Fuente de los iconos. Regenerar los PNG con: npm run icons -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8aa6ff"/>
+      <stop offset="1" stop-color="#5b73e8"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <path d="M76.8 7.7 L33.3 71.7 L57.6 71.7 L48.6 120.3 L94.7 56.3 L70.4 56.3 Z" fill="#ffffff"/>
+</svg>
