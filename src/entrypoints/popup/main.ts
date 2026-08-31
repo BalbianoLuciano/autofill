@@ -260,9 +260,18 @@ function readProfileForm(): Profile {
 }
 
 function setStatus(text: string, kind: 'ok' | 'error' = 'ok'): void {
-  profileStatus.textContent = text;
-  profileStatus.dataset.kind = kind;
-  if (text) window.setTimeout(() => (profileStatus.textContent = ''), 2600);
+  say(profileStatus, text, kind);
+}
+
+/** Exportar, importar y borrar viven en Ajustes, con su propio aviso. */
+function setSettingsStatus(text: string, kind: 'ok' | 'error' = 'ok'): void {
+  say($<HTMLParagraphElement>('#settings-status'), text, kind);
+}
+
+function say(node: HTMLElement, text: string, kind: 'ok' | 'error'): void {
+  node.textContent = text;
+  node.dataset.kind = kind;
+  if (text) window.setTimeout(() => (node.textContent = ''), 2600);
 }
 
 /* ------------------------------- ajustes -------------------------------- */
@@ -308,9 +317,9 @@ $<HTMLButtonElement>('#export').addEventListener('click', async () => {
     // cerrarse el popup se destruye su documento y con el muere el blob, asi
     // que la descarga se cancela sola. Sin dialogo, el popup sigue vivo.
     await browser.downloads.download({ url, filename: 'autofill-perfil.json' });
-    setStatus('Exportado a Descargas.');
+    setSettingsStatus('Exportado a Descargas.');
   } catch {
-    setStatus('No se pudo exportar.', 'error');
+    setSettingsStatus('No se pudo exportar.', 'error');
   } finally {
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
@@ -333,10 +342,12 @@ clearButton.addEventListener('click', async () => {
 
   await clearAll();
   profile = {};
+  questions = [];
   renderProfileForm(profile);
+  renderQuestions();
   clearButton.dataset.armed = 'false';
   clearButton.textContent = 'Borrar todo';
-  setStatus('Se borró el perfil y todo lo aprendido.');
+  setSettingsStatus('Se borró el perfil y todo lo aprendido.');
 });
 
 const importInput = $<HTMLInputElement>('#import-file');
@@ -352,9 +363,9 @@ importInput.addEventListener('change', async () => {
     settings = store.settings;
     renderProfileForm(profile);
     reflectSettings();
-    setStatus('Perfil importado.');
+    setSettingsStatus('Perfil importado.');
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : 'No se pudo leer el archivo.', 'error');
+    setSettingsStatus(error instanceof Error ? error.message : 'No se pudo leer el archivo.', 'error');
   } finally {
     importInput.value = '';
   }
@@ -397,8 +408,56 @@ function renderCvs(): void {
 const roleLabel = (role: CvRole) =>
   role === 'ai' ? 'AI Engineer' : role === 'lead' ? 'Team Leader' : 'Cualquiera';
 
+/**
+ * La zona de arrastre.
+ *
+ * El input nativo sigue ahi, invisible y encima del label: es lo que mantiene
+ * el click y el teclado funcionando. Lo unico que agrega esto es el arrastre y
+ * mostrar que archivo quedo elegido.
+ */
+const cvDrop = $<HTMLLabelElement>('#cv-drop');
+const cvFile = $<HTMLInputElement>('#cv-file');
+const cvFilename = $<HTMLSpanElement>('#cv-filename');
+
+function showChosenFile(): void {
+  const file = cvFile.files?.[0];
+  cvDrop.dataset.hasFile = String(Boolean(file));
+  cvFilename.textContent = file
+    ? `${file.name} · ${Math.round(file.size / 1024)} kB`
+    : 'Arrastrá el archivo o hacé click';
+
+  // Si todavia no le pusiste nombre, el del archivo es un buen default.
+  const label = $<HTMLInputElement>('#cv-label');
+  if (file && !label.value.trim()) label.value = file.name.replace(/\.[^.]+$/, '');
+}
+
+cvFile.addEventListener('change', showChosenFile);
+
+for (const event of ['dragenter', 'dragover'] as const) {
+  cvDrop.addEventListener(event, (e) => {
+    e.preventDefault();
+    cvDrop.dataset.dragging = 'true';
+  });
+}
+
+for (const event of ['dragleave', 'drop'] as const) {
+  cvDrop.addEventListener(event, () => (cvDrop.dataset.dragging = 'false'));
+}
+
+cvDrop.addEventListener('drop', (event) => {
+  event.preventDefault();
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+
+  // Se le pasa al input real para que el resto del flujo no cambie.
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  cvFile.files = transfer.files;
+  showChosenFile();
+});
+
 $<HTMLButtonElement>('#cv-save').addEventListener('click', async () => {
-  const file = $<HTMLInputElement>('#cv-file').files?.[0];
+  const file = cvFile.files?.[0];
   const status = $<HTMLParagraphElement>('#cv-status');
   if (!file) {
     status.textContent = 'Elegí un archivo primero.';
@@ -416,8 +475,9 @@ $<HTMLButtonElement>('#cv-save').addEventListener('click', async () => {
     );
     cvs = await listCvs();
     renderCvs();
-    $<HTMLInputElement>('#cv-file').value = '';
+    cvFile.value = '';
     $<HTMLInputElement>('#cv-label').value = '';
+    showChosenFile();
     status.textContent = 'CV guardado.';
     status.dataset.kind = 'ok';
   } catch (error) {
