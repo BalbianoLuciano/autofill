@@ -338,6 +338,22 @@ function setStatus(text: string, kind: 'ok' | 'error' = 'ok'): void {
   say(profileStatus, text, kind);
 }
 
+/**
+ * Confirma en el propio boton.
+ *
+ * Un aviso al pie de un formulario de 38 campos aparece donde no estas
+ * mirando. El boton que acabas de apretar, en cambio, lo tenes en el ojo.
+ */
+function flash(button: HTMLButtonElement, text: string): void {
+  if (button.dataset.idle === undefined) button.dataset.idle = button.textContent ?? '';
+  button.textContent = text;
+  button.dataset.done = 'true';
+  window.setTimeout(() => {
+    button.textContent = button.dataset.idle ?? '';
+    delete button.dataset.done;
+  }, 1800);
+}
+
 /** Exportar, importar y borrar viven en Ajustes, con su propio aviso. */
 function setSettingsStatus(text: string, kind: 'ok' | 'error' = 'ok'): void {
   say($<HTMLParagraphElement>('#settings-status'), text, kind);
@@ -351,10 +367,12 @@ function say(node: HTMLElement, text: string, kind: 'ok' | 'error'): void {
 
 /* ------------------------------- ajustes -------------------------------- */
 
-$<HTMLButtonElement>('#save').addEventListener('click', async () => {
+const saveButton = $<HTMLButtonElement>('#save');
+
+saveButton.addEventListener('click', async () => {
   profile = readProfileForm();
   await saveProfile(profile);
-  setStatus('Perfil guardado.');
+  flash(saveButton, '✓ Perfil guardado');
 });
 
 $<HTMLInputElement>('#fill-sensitive').addEventListener('change', (event) => {
@@ -587,8 +605,7 @@ $<HTMLButtonElement>('#cv-save').addEventListener('click', async () => {
     $<HTMLInputElement>('#cv-label').value = '';
     $<HTMLInputElement>('#cv-filename-input').value = '';
     showChosenFile();
-    status.textContent = 'CV guardado.';
-    status.dataset.kind = 'ok';
+    flash($<HTMLButtonElement>('#cv-save'), '✓ Listo');
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : 'No se pudo guardar.';
     status.dataset.kind = 'error';

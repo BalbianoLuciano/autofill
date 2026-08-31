@@ -278,9 +278,33 @@ button.link:disabled { color: var(--faint); cursor: default; }
 .sticky-actions {
   position: sticky;
   bottom: 0;
-  padding: 12px 0 4px;
-  margin-top: 16px;
-  background: linear-gradient(transparent, var(--bg) 28%);
+  /*
+   * Aire abajo, para no quedar pegado al borde del popup.
+   *
+   * Y arriba el desvanecido tiene que terminar justo donde empieza el boton:
+   * si no, el campo que viene scrolleando se ve pegado atras y todo el bloque
+   * se lee como contenido cortado.
+   */
+  padding: 26px 0 12px;
+  margin-top: 8px;
+  background: linear-gradient(transparent, var(--bg) 33%);
+}
+
+/* El aviso viaja con el boton: al pie del formulario quedaba fuera de vista. */
+.sticky-actions .status { margin: 7px 0 0; text-align: center; }
+
+/*
+ * Vacio no ocupa lugar.
+ *
+ * Guardar ya se confirma en el propio boton, asi que este renglon queda solo
+ * para los errores; reservarle alto siempre empujaba el boton contra el borde.
+ */
+.sticky-actions .status:empty { display: none; }
+
+/* Confirmado: el boton se pone verde un momento. */
+button.primary[data-done="true"] {
+  background: var(--ok);
+  color: #06231a;
 }
 
 /* -------------------------------- controles -------------------------------- */

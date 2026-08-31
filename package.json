@@ -1,6 +1,6 @@
 {
   "name": "autofill",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "description": "Extension de Chrome que rellena formularios de aplicacion laboral con un click",
   "type": "module",

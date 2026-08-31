@@ -7,6 +7,21 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.6.1
+
+**Guardabas el perfil y no te enterabas.**
+
+El aviso de «Perfil guardado» estaba *después* del bloque fijo, o sea al final de un
+formulario de 38 campos: aparecía fuera de la pantalla, justo donde no estabas mirando.
+
+- **Confirma el propio botón**, que se pone verde con «✓ Perfil guardado». Es lo único
+  imposible de no ver, porque es lo que acabás de apretar. Lo mismo al guardar un CV.
+- El renglón de aviso pasó adentro del bloque fijo y queda solo para los errores. Vacío
+  no ocupa lugar.
+- El bloque fijo dejó de quedar pegado al borde del popup, y el desvanecido de arriba
+  ahora termina donde empieza el botón: antes el campo que venía scrolleando se veía
+  pegado atrás y todo el conjunto se leía como contenido cortado.
+
 ## 1.6.0
 
 **Años de experiencia, por tecnología.**
