@@ -322,3 +322,10 @@ select:focus { outline: none; border-color: var(--accent); }
   color: var(--muted);
   white-space: nowrap;
 }
+
+#version {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: .02em;
+}

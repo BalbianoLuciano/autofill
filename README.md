@@ -172,6 +172,15 @@ Atajo: `Alt+Shift+F` abre el popup.
 
 ---
 
+## Versiones
+
+La versión sale de `package.json` y se ve en `chrome://extensions` y en el encabezado del
+popup, que es la forma rápida de saber si Chrome ya recargó el build nuevo. El historial
+está en [CHANGELOG.md](CHANGELOG.md).
+
+Después de un `npm run build`, en `chrome://extensions` alcanza con el botón recargar:
+no hace falta volver a cargar la carpeta.
+
 ## Contribuir
 
 Se agradecen PRs, sobre todo **aliases nuevos para el diccionario** y **portales

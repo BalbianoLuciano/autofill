@@ -584,6 +584,9 @@ function reflectSettings(): void {
 }
 
 async function init(): Promise<void> {
+  // Sirve para saber de un vistazo si Chrome recargo el build nuevo.
+  $('#version').textContent = browser.runtime.getManifest().version;
+
   if (new URLSearchParams(location.search).has('onboarding')) {
     document.body.classList.add('as-tab');
   }
