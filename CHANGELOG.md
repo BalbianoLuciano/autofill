@@ -7,6 +7,18 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.4.0
+
+- **El nombre con el que se sube el CV ahora se elige.** Antes viajaba el nombre que el
+  archivo tenía en el disco, que es lo primero que ve quien abre la aplicación:
+  `BALBIANO_LUCIANO_CV_en.pdf` no se lee igual que `cv_balbiano_luciano_es.pdf`. Se
+  propone al elegir el archivo, se puede cambiar al guardarlo, y se corrige después
+  clickeándolo en la tarjeta. Se sanea de barras y caracteres raros, y se le conserva la
+  extensión.
+- La etiqueta y el nombre de subida quedaron separados y explicados: una es para vos, en
+  la lista; el otro es lo que ve el otro lado.
+- Se suprime el tooltip nativo «No file chosen» del input de archivo.
+
 ## 1.3.0
 
 Rediseño del popup.

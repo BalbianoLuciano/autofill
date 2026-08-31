@@ -664,3 +664,30 @@ ul { margin: 0; padding: 0; list-style: none; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* El nombre con el que se sube: lo unico de la tarjeta que ve otra persona. */
+.cv-body { display: grid; gap: 2px; min-width: 0; }
+
+button.filename,
+input.rename {
+  justify-self: start;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 10.5px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+button.filename:hover { border-color: var(--accent); color: var(--text); }
+
+input.rename { width: 100%; cursor: text; }
+input.rename:focus { outline: none; border-color: var(--accent); background: var(--surface); }

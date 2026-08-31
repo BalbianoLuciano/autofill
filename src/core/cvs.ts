@@ -22,12 +22,20 @@ export async function listCvs(): Promise<CvMeta[]> {
   return (raw[META_KEY] as CvMeta[] | undefined) ?? [];
 }
 
-export async function saveCv(file: File, label: string, lang: Lang, role: CvRole): Promise<CvMeta> {
+export async function saveCv(
+  file: File,
+  label: string,
+  lang: Lang,
+  role: CvRole,
+  filename?: string,
+): Promise<CvMeta> {
   if (file.size > MAX_CV_BYTES) throw new Error('El archivo supera los 5 MB.');
 
   const meta: CvMeta = {
     id: crypto.randomUUID(),
-    filename: file.name,
+    // Con el que se sube al formulario, no el que tiene en tu disco: es lo
+    // primero que ve quien abre la aplicacion.
+    filename: cleanFilename(filename, file.name),
     label,
     lang,
     role,
@@ -44,6 +52,28 @@ export async function saveCv(file: File, label: string, lang: Lang, role: CvRole
   });
 
   return meta;
+}
+
+/**
+  * Cambia el nombre con el que se sube. No toca el archivo: solo el nombre que
+  * viaja con el, que es lo unico que ve el otro lado.
+  */
+export async function renameCv(id: string, filename: string): Promise<CvMeta[]> {
+  const metas = (await listCvs()).map((m) =>
+    m.id === id ? { ...m, filename: cleanFilename(filename, m.filename) } : m,
+  );
+  await browser.storage.local.set({ [META_KEY]: metas });
+  return metas;
+}
+
+/** Sin barras ni caracteres que rompan una descarga, y siempre con extension. */
+function cleanFilename(wanted: string | undefined, fallback: string): string {
+  const base = (wanted ?? '').trim() || fallback;
+  const safe = base.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
+  if (!safe) return fallback;
+
+  const originalExt = fallback.match(/\.[^.]+$/)?.[0] ?? '.pdf';
+  return /\.[a-z0-9]{2,5}$/i.test(safe) ? safe : safe + originalExt;
 }
 
 export async function deleteCv(id: string): Promise<void> {

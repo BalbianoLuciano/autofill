@@ -53,7 +53,7 @@
       <h2 class="sub">Sumar uno</h2>
       <div class="stack">
         <label class="dropzone" id="cv-drop" for="cv-file">
-          <input type="file" id="cv-file" accept=".pdf,.doc,.docx,application/pdf" />
+          <input type="file" id="cv-file" title="" accept=".pdf,.doc,.docx,application/pdf" />
           <span class="dz-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="21" height="21" fill="none"
                  stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
@@ -69,7 +69,14 @@
 
         <label class="field">
           <span class="field-name">Cómo lo llamás</span>
+          <span class="field-hint">Solo para vos, en esta lista.</span>
           <input type="text" id="cv-label" placeholder="AI Engineer · ES" />
+        </label>
+
+        <label class="field">
+          <span class="field-name">Nombre con el que se sube</span>
+          <span class="field-hint">Esto es lo que ve quien abre tu aplicación.</span>
+          <input type="text" id="cv-filename-input" placeholder="BALBIANO_LUCIANO_CV_en.pdf" />
         </label>
 
         <div class="grid-3">

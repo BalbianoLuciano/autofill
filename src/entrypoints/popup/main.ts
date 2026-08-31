@@ -12,7 +12,7 @@ import {
   clearAll, deleteQuestion, exportJson, forgetMapping, getMappings, getStore,
   importJson, learnMapping, saveProfile, saveSettings,
 } from '../../core/storage';
-import { deleteCv, listCvs, pickCv, readCv, saveCv } from '../../core/cvs';
+import { deleteCv, listCvs, pickCv, readCv, renameCv, saveCv } from '../../core/cvs';
 import type {
   Currency, CustomQuestion, CvMeta, CvRole, FilledField, FillReport, Lang,
   Period, Profile, ProfileValue, RegionCode, SalaryEntry, Settings, SkippedField,
@@ -383,13 +383,39 @@ function renderCvs(): void {
 
   list.replaceChildren(
     ...cvs.map((cv) => {
-      const li = el('li', {},
-        el('div', {},
-          el('span', { className: 'label' }, cv.label || cv.filename),
-          el('span', { className: 'meta' },
-            `${cv.lang.toUpperCase()} · ${roleLabel(cv.role)} · ${Math.round(cv.size / 1024)} kB`),
-        ),
+      const body = el('div', { className: 'cv-body' },
+        el('span', { className: 'label' }, cv.label || cv.filename),
+        el('span', { className: 'meta' },
+          `${cv.lang.toUpperCase()} · ${roleLabel(cv.role)} · ${Math.round(cv.size / 1024)} kB`),
       );
+
+      // El nombre con el que se sube es lo unico de esta tarjeta que ve otra
+      // persona, asi que se muestra aparte y se puede corregir en el momento.
+      const filename = el('button', {
+        className: 'filename',
+        title: 'Renombrar. Es el nombre que ve quien abre tu aplicación.',
+        textContent: cv.filename,
+      });
+
+      filename.addEventListener('click', () => {
+        const input = el('input', { type: 'text', className: 'rename', value: cv.filename });
+        const commit = async () => {
+          cvs = await renameCv(cv.id, input.value);
+          renderCvs();
+        };
+        input.addEventListener('blur', () => void commit());
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') input.blur();
+          if (event.key === 'Escape') renderCvs();
+        });
+        filename.replaceWith(input);
+        input.focus();
+        input.select();
+      });
+
+      body.append(filename);
+
+      const li = el('li', {}, body);
       if (chosenCv?.id === cv.id) li.dataset.picked = 'true';
 
       const remove = el('button', { className: 'link', textContent: 'Borrar' });
@@ -426,9 +452,15 @@ function showChosenFile(): void {
     ? `${file.name} · ${Math.round(file.size / 1024)} kB`
     : 'Arrastrá el archivo o hacé click';
 
-  // Si todavia no le pusiste nombre, el del archivo es un buen default.
+  if (!file) return;
+
+  // Se proponen los dos, pero son cosas distintas: la etiqueta es para esta
+  // lista, y el nombre de subida es lo que ve quien abre la aplicacion.
   const label = $<HTMLInputElement>('#cv-label');
-  if (file && !label.value.trim()) label.value = file.name.replace(/\.[^.]+$/, '');
+  if (!label.value.trim()) label.value = file.name.replace(/\.[^.]+$/, '');
+
+  const filename = $<HTMLInputElement>('#cv-filename-input');
+  if (!filename.value.trim()) filename.value = file.name;
 }
 
 cvFile.addEventListener('change', showChosenFile);
@@ -472,11 +504,13 @@ $<HTMLButtonElement>('#cv-save').addEventListener('click', async () => {
       label,
       $<HTMLSelectElement>('#cv-lang').value as Lang,
       $<HTMLSelectElement>('#cv-role').value as CvRole,
+      $<HTMLInputElement>('#cv-filename-input').value,
     );
     cvs = await listCvs();
     renderCvs();
     cvFile.value = '';
     $<HTMLInputElement>('#cv-label').value = '';
+    $<HTMLInputElement>('#cv-filename-input').value = '';
     showChosenFile();
     status.textContent = 'CV guardado.';
     status.dataset.kind = 'ok';
