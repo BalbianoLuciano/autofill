@@ -71,7 +71,7 @@ function render(html: string): void {
 const run = (settings: Partial<Settings> = {}, questions: CustomQuestion[] = []) =>
   runFill({ profile: PROFILE, mappings: {}, questions, settings: { ...SETTINGS, ...settings } });
 
-const bySignature = (list: { signature: string }[], fragment: string) =>
+const bySignature = <T extends { signature: string }>(list: T[], fragment: string) =>
   list.find((s) => s.signature.includes(fragment));
 
 beforeEach(() => {
