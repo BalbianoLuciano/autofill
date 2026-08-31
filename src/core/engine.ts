@@ -9,7 +9,7 @@
 
 import { FIELD_BY_KEY, type FieldKey } from './fields';
 import { detectFields, type DetectedField } from './matcher';
-import { clearHighlights, fill, highlight } from './filler';
+import { clearHighlights, fill, highlight, scrollToFirst } from './filler';
 import type { FieldSignature, FillReport, FilledField, Profile, SkippedField } from '../types';
 
 export interface RunOptions {
@@ -26,6 +26,9 @@ export function runFill(options: RunOptions): FillReport {
   const filled: FilledField[] = [];
   const skipped: SkippedField[] = [];
   const seenSignatures = new Set<FieldSignature>();
+  // Los sensibles son lo unico que queda por hacer a mano, asi que la pagina
+  // termina posicionada en el primero.
+  const sensitive: Element[] = [];
 
   for (const field of detected) {
     // Un mismo `name` puede repetirse entre pasos del formulario; el primero
@@ -35,8 +38,13 @@ export function runFill(options: RunOptions): FillReport {
 
     const outcome = applyTo(field, options);
     if (outcome.kind === 'filled') filled.push(outcome.field);
-    else if (outcome.kind === 'skipped') skipped.push(outcome.field);
+    else if (outcome.kind === 'skipped') {
+      skipped.push(outcome.field);
+      if (outcome.field.reason === 'sensitive') sensitive.push(field.el);
+    }
   }
+
+  scrollToFirst(sensitive);
 
   return { hostname: location.hostname, filled, skipped };
 }
@@ -82,7 +90,7 @@ function applyTo(field: DetectedField, options: RunOptions): Outcome {
   }
 
   highlight(el, 'filled');
-  return { kind: 'filled', field: { key, label, value, via: via ?? 'attributes' } };
+  return { kind: 'filled', field: { key, signature, label, value, via: via ?? 'attributes' } };
 }
 
 function hasContent(el: DetectedField['el'], group?: HTMLInputElement[]): boolean {

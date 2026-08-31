@@ -41,6 +41,7 @@ export type SkipReason =
 /** Un campo que la extension reconocio y completo. */
 export interface FilledField {
   key: FieldKey;
+  signature: FieldSignature;
   label: string;
   value: string;
   /** Con que paso de la cascada se reconocio (§5 del spec). */
