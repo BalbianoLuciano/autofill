@@ -167,6 +167,37 @@ li select {
   font-size: 12px;
 }
 
+button.danger {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #7f1d1d;
+  border-radius: 8px;
+  background: transparent;
+  color: #fca5a5;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.danger:hover { background: #1c1214; }
+button.danger[data-armed="true"] { background: #7f1d1d; color: #fff; }
+
+button.link {
+  margin-top: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+button.link:hover { color: var(--accent); }
+
+/* En pestana (onboarding) el popup no tiene que quedar pegado arriba a la izquierda. */
+body.as-tab { max-height: none; margin: 24px auto; }
+
 /* -------------------------------- perfil -------------------------------- */
 
 form { display: grid; gap: 9px; }
