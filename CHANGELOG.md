@@ -7,6 +7,17 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.4.1
+
+- **El popup no scrolleaba.** El `body` tenía `max-height: 580px` con `overflow-y: auto`,
+  pero en un popup el que scrollea es `html`. Al limitar el `body`, el popup se
+  dimensionaba a esa altura y `html` quedaba sin nada que scrollear: los campos de abajo
+  eran inalcanzables. Ahora el `body` no se limita y scrollea el documento, que es lo que
+  Chrome ya hace topando el popup en 600px.
+- Se saca el estilo propio de la barra de scroll: convertía la barra *overlay* de macOS,
+  que no ocupa espacio, en una clásica que sí lo ocupa, y esos píxeles se sumaban al ancho
+  y sacaban una barra horizontal.
+
 ## 1.4.0
 
 - **El nombre con el que se sube el CV ahora se elige.** Antes viajaba el nombre que el

@@ -46,11 +46,20 @@
 
 * { box-sizing: border-box; }
 
+/*
+ * Sin `max-height` ni `overflow` aca.
+ *
+ * En un popup el que scrollea es `html`, no `body`. Limitando el `body` se
+ * recorta el contenido y ademas el popup se dimensiona a esa altura, con lo
+ * cual `html` queda sin nada que scrollear: los campos de abajo quedan
+ * inalcanzables. Chrome ya topa el popup en 600px y le pone scroll al
+ * documento, que es exactamente lo que hace falta.
+ */
 body {
   width: 384px;
-  max-height: 580px;
+  /* Si el viewport es mas angosto, encoge en vez de sacar barra horizontal. */
+  max-width: 100%;
   margin: 0;
-  overflow-y: auto;
   background: var(--bg);
   color: var(--text);
   font-family: "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont,
@@ -63,7 +72,6 @@ body {
 }
 
 body.as-tab {
-  max-height: none;
   margin: 28px auto;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -73,13 +81,11 @@ body.as-tab {
 /* Los digitos de un sueldo o una version tienen que alinearse. */
 .version, .meta, .summary strong { font-variant-numeric: tabular-nums; }
 
-::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-thumb {
-  background: var(--surface-3);
-  border: 3px solid var(--bg);
-  border-radius: 6px;
-}
-::-webkit-scrollbar-thumb:hover { background: #323844; }
+/*
+ * Sin scrollbar a medida: estilarla convierte la overlay de macOS —que no
+ * ocupa espacio— en una clasica que si lo ocupa, y esos pixeles se suman al
+ * ancho del popup y sacan una barra horizontal.
+ */
 
 :focus-visible {
   outline: 2px solid var(--accent);
