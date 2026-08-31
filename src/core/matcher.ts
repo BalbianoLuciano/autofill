@@ -10,6 +10,7 @@
  */
 
 import { FIELDS, type FieldKey } from './fields';
+import { HOST_ID } from './overlay';
 import { normalize, tokenize, containsTokenSequence } from './normalize';
 import type { FieldSignature, MatchSource } from '../types';
 
@@ -214,7 +215,12 @@ export function collectFillables(root: Document | ShadowRoot | Element): Fillabl
 
     // Shadow DOM: Workday y varios design systems esconden los inputs adentro.
     const hosts = node.querySelectorAll<HTMLElement>('*');
-    for (const host of hosts) if (host.shadowRoot) visit(host.shadowRoot);
+    for (const host of hosts) {
+      // Menos el nuestro: el panel de preguntas tambien tiene un shadow root,
+      // y sus propios controles no son campos del formulario.
+      if (host.id === HOST_ID) continue;
+      if (host.shadowRoot) visit(host.shadowRoot);
+    }
   };
 
   visit(root);
@@ -291,6 +297,16 @@ function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): Dete
   const label = ownLabel || nearby();
   const signature = signatureOf(el, label);
 
+  /*
+   * Una pregunta con opciones no se identifica por una palabra suelta.
+   *
+   * "¿Tenes experiencia integrando APIs de LLMs?" contiene `experiencia`, pero
+   * no es el campo de anios de experiencia: es una pregunta de si o no que la
+   * empresa invento. Ahi se exige un alias de varias palabras o una
+   * coincidencia exacta, y si no la hay se trata como pregunta propia.
+   */
+  const minScore = isRadio && /[?¿]/.test(ownLabel) ? 600 : 0;
+
   // 1. lo aprendido gana siempre
   const learnedKey = learned[signature];
   if (learnedKey) return { el, signature, label, key: learnedKey, via: 'learned' };
@@ -302,7 +318,9 @@ function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): Dete
   // 3. el label asociado
   if (ownLabel) {
     const hit = matchText(ownLabel);
-    if (hit) return { el, signature, label, key: hit.key, via: 'label' };
+    if (hit && hit.score >= minScore) {
+      return { el, signature, label, key: hit.key, via: 'label' };
+    }
   }
 
   // 4. name / id / aria-label / placeholder
@@ -313,7 +331,7 @@ function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): Dete
     el.getAttribute('placeholder'),
     el.getAttribute('data-testid'),
   ]);
-  if (fromAttributes) {
+  if (fromAttributes && fromAttributes.score >= minScore) {
     return { el, signature, label, key: fromAttributes.key, via: 'attributes' };
   }
 
@@ -321,7 +339,9 @@ function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): Dete
   const surrounding = nearby();
   if (surrounding) {
     const hit = matchText(surrounding);
-    if (hit) return { el, signature, label, key: hit.key, via: 'nearby-text' };
+    if (hit && hit.score >= minScore) {
+      return { el, signature, label, key: hit.key, via: 'nearby-text' };
+    }
   }
 
   return { el, signature, label, key: null, via: null };

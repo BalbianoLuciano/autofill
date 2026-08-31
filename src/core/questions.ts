@@ -58,14 +58,34 @@ export function upsertQuestion(
 }
 
 /**
- * Un campo da para pregunta abierta si espera un texto largo. Un input de una
- * linea que no reconocimos casi siempre es un dato, no una pregunta, y llenarlo
- * con un parrafo lo empeora.
+ * Si el campo se puede contestar a mano.
+ *
+ * Un textarea siempre. Un grupo de radios o un select, cuando lo que los
+ * encabeza es una pregunta y no una etiqueta: "¿Tenes experiencia integrando
+ * APIs de LLMs?" no es ningun dato del perfil, pero se contesta una vez y se
+ * reusa. Un input de una linea suelto casi siempre es un dato, no una
+ * pregunta, y llenarlo con un parrafo lo empeora.
  */
-export function looksLikeOpenQuestion(el: Element, label: string): boolean {
+export function looksLikeOpenQuestion(
+  el: Element,
+  label: string,
+  hasOptions = false,
+): boolean {
   if (el instanceof HTMLTextAreaElement) return true;
-  if (!(el instanceof HTMLInputElement) || el.type !== 'text') return false;
 
-  // Un label largo o con signo de pregunta es una pregunta, no una etiqueta.
-  return label.length >= 25 || /[?¿]/.test(label);
+  const asks = /[?¿]/.test(label);
+  if (hasOptions || el instanceof HTMLSelectElement) return asks || label.length >= 15;
+  if (!(el instanceof HTMLInputElement) || el.type !== 'text') return false;
+  return asks || label.length >= 25;
+}
+
+/** Las etiquetas de las opciones, para poder ofrecerlas en el overlay. */
+export function optionsOf(el: Element, group?: HTMLInputElement[]): string[] {
+  if (group && group.length > 0) {
+    return group.map((i) => i.labels?.[0]?.textContent?.trim() || i.value).filter(Boolean);
+  }
+  if (el instanceof HTMLSelectElement) {
+    return Array.from(el.options).filter((o) => o.value !== '').map((o) => o.text.trim());
+  }
+  return [];
 }

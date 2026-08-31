@@ -241,8 +241,8 @@ export const FIELDS: FieldDef[] = [
     aliases: [
       'years of experience', 'years experience', 'yoe', 'total experience',
       'how many years', 'years of relevant experience', 'experience years',
-      'anos de experiencia', 'años de experiencia', 'experiencia',
-      'anios de experiencia',
+      'anos de experiencia', 'años de experiencia', 'anios de experiencia',
+      'cuantos anos de experiencia',
     ],
   },
   {
@@ -431,9 +431,9 @@ export const FIELDS: FieldDef[] = [
     kind: 'choice',
     options: [
       { code: 'a2', es: 'A2 - Básico', en: 'A2 - Elementary', match: ['a2', 'basic', 'elementary', 'basico', 'básico'] },
-      { code: 'b1', es: 'B1 - Intermedio', en: 'B1 - Intermediate', match: ['b1', 'intermediate', 'intermedio', 'limited working'] },
-      { code: 'b2', es: 'B2 - Intermedio alto', en: 'B2 - Upper intermediate', match: ['b2', 'upper intermediate', 'intermedio alto', 'professional working', 'advanced'] },
-      { code: 'c1', es: 'C1 - Avanzado', en: 'C1 - Advanced', match: ['c1', 'advanced', 'avanzado', 'full professional', 'fluent'] },
+      { code: 'b1', es: 'B1 - Intermedio', en: 'B1 - Intermediate', match: ['b1', 'intermediate', 'intermedio', 'limited working', 'medio'] },
+      { code: 'b2', es: 'B2 - Intermedio alto', en: 'B2 - Upper intermediate', match: ['b2', 'upper intermediate', 'intermedio alto', 'professional working', 'intermedio avanzado', 'pre avanzado'] },
+      { code: 'c1', es: 'C1 - Avanzado', en: 'C1 - Advanced', match: ['c1', 'advanced', 'avanzado', 'full professional', 'fluent', 'fluido', 'conversacional'] },
       { code: 'c2', es: 'C2 - Bilingüe', en: 'C2 - Proficient', match: ['c2', 'proficient', 'bilingual', 'bilingue', 'bilingüe', 'near native'] },
       { code: 'native', es: 'Nativo', en: 'Native', match: ['native', 'nativo', 'mother tongue', 'lengua materna'] },
     ],

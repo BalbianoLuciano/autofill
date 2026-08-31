@@ -9,7 +9,7 @@
  * el lo despeine a el.
  */
 
-const HOST_ID = 'autofill-overlay-host';
+export const HOST_ID = 'autofill-overlay-host';
 
 const STYLES = `
   :host { all: initial; }
@@ -45,7 +45,17 @@ const STYLES = `
     resize: vertical;
     box-sizing: border-box;
   }
-  textarea:focus { outline: none; border-color: #7c9cff; }
+  textarea:focus, select:focus { outline: none; border-color: #7c9cff; }
+  select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #2a3040;
+    border-radius: 6px;
+    background: #0f1117;
+    color: #e6e8ee;
+    font: inherit;
+    box-sizing: border-box;
+  }
   .row { display: flex; gap: 8px; align-items: center; }
   button {
     flex: 1;
@@ -92,6 +102,8 @@ export function closeOverlay(): void {
 export interface PendingQuestion {
   signature: string;
   label: string;
+  /** Si el campo es de opciones, las que ofrece el formulario. */
+  options?: string[];
 }
 
 /**
@@ -122,21 +134,46 @@ export function showQuestions(
     const label = document.createElement('label');
     label.textContent = question.label;
 
-    const textarea = document.createElement('textarea');
     const saved = document.createElement('span');
     saved.className = 'saved';
 
-    let timer: number | undefined;
-    textarea.addEventListener('input', () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (!textarea.value.trim()) return;
-        onAnswer(question.signature, question.label, textarea.value.trim());
-        saved.textContent = 'Guardada';
-      }, 600);
-    });
+    // Con opciones se elige, no se escribe: texto libre en un grupo de radios
+    // no selecciona nada.
+    if (question.options && question.options.length > 0) {
+      const select = document.createElement('select');
+      // createElement y no `new Option`: el overlay corre en el contexto de la
+      // pagina y no conviene depender de sus globales.
+      const addOption = (text: string, value: string) => {
+        const option = document.createElement('option');
+        option.textContent = text;
+        option.value = value;
+        select.append(option);
+      };
+      addOption('Elegí una…', '');
+      for (const option of question.options) addOption(option, option);
 
-    block.append(label, textarea, saved);
+      select.addEventListener('change', () => {
+        if (!select.value) return;
+        onAnswer(question.signature, question.label, select.value);
+        saved.textContent = 'Guardada';
+      });
+
+      block.append(label, select, saved);
+    } else {
+      const textarea = document.createElement('textarea');
+
+      let timer: number | undefined;
+      textarea.addEventListener('input', () => {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          if (!textarea.value.trim()) return;
+          onAnswer(question.signature, question.label, textarea.value.trim());
+          saved.textContent = 'Guardada';
+        }, 600);
+      });
+
+      block.append(label, textarea, saved);
+    }
     panel.append(block);
   }
 

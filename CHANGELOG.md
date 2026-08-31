@@ -7,6 +7,36 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.5.0
+
+Primera pasada contra un formulario real (Teamtailor). Cuatro cosas rotas.
+
+**Arreglado**
+
+- **Las preguntas en grupos de radios no se podían contestar.** Una pregunta propia de la
+  empresa —«¿Tenés experiencia integrando APIs de LLMs?», Sí/No— quedaba como «sin
+  reconocer» y no había forma de responderla. Ahora aparece en el panel con sus opciones
+  reales para elegir, y la elección se guarda para la próxima.
+- **Las escalas inventadas por cada empresa no coincidían.** El perfil dice B2 y el
+  formulario ofrece «Intermedio - me siento con comodidad para leer y escribir pero no a
+  nivel conversacional». Ningún sinónimo va a cubrir todas las escalas posibles, así que
+  ahora se ofrece elegir una vez y esa elección se reusa por pregunta.
+- **`experiencia` como alias suelto era un imán de falsos positivos.** «¿Tenés
+  experiencia integrando APIs?» se identificaba como el campo de años de experiencia. Se
+  quita, y además una pregunta con opciones ahora exige un alias de varias palabras: una
+  palabra suelta dentro de una pregunta larga no dice nada.
+- **El matcher detectaba los controles del propio panel.** Como recorre shadow DOM, veía
+  el `<select>` que el overlay inyecta y lo trataba como un campo del formulario.
+
+**Nota sobre el salario**
+
+El slider *sí* se reconoce y se resuelve a la cifra correcta, convertida al período y la
+moneda que pide el label. No se completa porque el salario es un campo sensible: hay que
+habilitar «Rellenar los campos sensibles» en Ajustes. El popup ya muestra la cifra que
+corresponde, con botón para copiarla.
+
+90 tests, ocho de ellos calcados de un formulario real.
+
 ## 1.4.1
 
 - **El popup no scrolleaba.** El `body` tenía `max-height: 580px` con `overflow-y: auto`,

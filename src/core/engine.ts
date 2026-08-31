@@ -12,7 +12,7 @@ import { detectFields, type DetectedField } from './matcher';
 import { clearHighlights, fill, highlight, isNumericInput, scrollToFirst } from './filler';
 import { detectLanguage, extractQualifiers } from './context';
 import { resolve } from './resolve';
-import { findAnswer, looksLikeOpenQuestion } from './questions';
+import { findAnswer, looksLikeOpenQuestion, optionsOf } from './questions';
 import { attachCv, findCvInputs } from './cvs';
 import { findApplyButton, formOf, missingRequired } from './apply';
 import { showCountdown, showNotice, showQuestions, type PendingQuestion } from './overlay';
@@ -54,8 +54,14 @@ export function runFill(options: RunOptions): FillReport {
     else if (outcome.kind === 'skipped') {
       skipped.push(outcome.field);
       if (outcome.field.reason === 'sensitive') sensitive.push(field.el);
-      if (outcome.field.reason === 'needs-answer') {
-        pending.push({ signature: outcome.field.signature, label: outcome.field.label });
+      // Tanto una pregunta abierta como un campo cuyas opciones no coincidieron
+      // terminan igual: hay que elegir a mano una vez y despues se reusa.
+      if (outcome.field.reason === 'needs-answer' || outcome.field.reason === 'no-option') {
+        pending.push({
+          signature: outcome.field.signature,
+          label: outcome.field.label,
+          options: outcome.field.options,
+        });
       }
     }
   }
@@ -113,6 +119,22 @@ function applyTo(field: DetectedField, options: RunOptions, lang: Lang): Outcome
 
   const result = fill(el, resolution.candidates, group);
   if (!result.ok) {
+    // El perfil dice C1 pero este formulario ofrece "Avanzado - lo uso
+    // conversacionalmente": ningun sinonimo va a cubrir todas las escalas que
+    // inventa cada empresa. Si ya elegiste una vez para esta pregunta, se
+    // reusa esa eleccion.
+    const known = findAnswer(label, options.questions);
+    if (known) {
+      const retry = fill(el, [known.answer], group);
+      if (retry.ok) {
+        highlight(el, 'filled');
+        return {
+          kind: 'filled',
+          field: { key, signature, label, value: known.answer, via: 'learned' },
+        };
+      }
+    }
+
     highlight(el, 'unmapped');
     return {
       kind: 'skipped',
@@ -135,19 +157,20 @@ function applyTo(field: DetectedField, options: RunOptions, lang: Lang): Outcome
  * overlay, y desde ahi queda guardada para la proxima.
  */
 function applyOpenQuestion(field: DetectedField, options: RunOptions): Outcome {
-  const { el, signature, label } = field;
+  const { el, group, signature, label } = field;
+  const choices = optionsOf(el, group);
 
-  if (!looksLikeOpenQuestion(el, label)) {
+  if (!looksLikeOpenQuestion(el, label, choices.length > 0)) {
     highlight(el, 'unmapped');
     return { kind: 'skipped', field: { signature, label, reason: 'unmapped' } };
   }
 
   const known = findAnswer(label, options.questions);
   if (known) {
-    if (hasContent(el) && !options.settings.overwriteFilled) {
+    if (hasContent(el, group) && !options.settings.overwriteFilled) {
       return { kind: 'skipped', field: { signature, label, reason: 'already-filled' } };
     }
-    const result = fill(el, [known.answer]);
+    const result = fill(el, [known.answer], group);
     if (result.ok) {
       highlight(el, 'filled');
       return {
@@ -158,7 +181,10 @@ function applyOpenQuestion(field: DetectedField, options: RunOptions): Outcome {
   }
 
   highlight(el, 'unmapped');
-  return { kind: 'skipped', field: { signature, label, reason: 'needs-answer' } };
+  return {
+    kind: 'skipped',
+    field: { signature, label, reason: 'needs-answer', options: choices },
+  };
 }
 
 function hasContent(el: DetectedField['el'], group?: HTMLInputElement[]): boolean {
@@ -287,7 +313,7 @@ export function applyAnswer(signature: FieldSignature, answer: string): boolean 
   );
   if (!target) return false;
 
-  const result = fill(target.el, [answer]);
+  const result = fill(target.el, [answer], target.group);
   if (result.ok) highlight(target.el, 'filled');
   return result.ok;
 }
