@@ -35,14 +35,15 @@ export default defineUnlistedScript(() => {
           runFill({
             profile: message.profile,
             mappings: message.mappings,
-            fillSensitive: message.fillSensitive,
-            overwriteFilled: message.overwriteFilled,
+            settings: message.settings,
           }),
         );
         return;
 
       case 'AUTOFILL_APPLY_LEARNED':
-        sendResponse({ ok: applyLearned(message.signature, message.key, message.value) });
+        sendResponse({
+          ok: applyLearned(message.signature, message.key, message.profile, message.settings),
+        });
         return;
     }
   });
