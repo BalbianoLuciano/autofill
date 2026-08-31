@@ -11,11 +11,15 @@ completa. **No** aplica solo: rellena, y la persona revisa y envía.
 
 Tres partes:
 
-- **Diccionario** (`src/core/fields.ts`) — 26 campos del perfil y 298 formas en que un
+- **Diccionario** (`src/core/fields.ts`) — 38 campos del perfil y 385 formas en que un
   formulario puede pedirlos, en inglés, español, francés, alemán y portugués.
-- **Motor** (`matcher.ts` + `filler.ts` + `engine.ts`) — encuentra los campos en la
-  página y los completa.
+- **Motor** (`matcher.ts` + `resolve.ts` + `filler.ts` + `engine.ts`) — encuentra los
+  campos, resuelve qué valor corresponde a cada uno y los completa.
 - **Memoria** (`storage.ts`) — guarda el perfil y aprende los campos que no supo mapear.
+
+El perfil no guarda texto plano: guarda **intención**. «Quiero 2500 dólares por mes»,
+«puedo trabajar en Argentina y España». Cada formulario pide otra cosa —un anual en
+USD, un Sí/No— y el motor traduce.
 
 ### Por qué no hay lista de sitios
 
@@ -51,6 +55,26 @@ La comparación es **por token, no por substring**. Si no, `name` matchea `compa
 contigua; uno de una sola palabra cuenta entero solo si es distintivo (`linkedin` lo usa
 un campo, `name` lo usan cuatro y entonces exige coincidencia exacta).
 
+### Idioma, salario y regiones
+
+Tres cosas que un campo de texto libre no resuelve:
+
+**El idioma sale de la página.** Se detecta de `<html lang>` y, como refuerzo, contando
+palabras funcionales. Los campos enumerados (disponibilidad, nivel de inglés, modalidad)
+guardan un código y se renderizan solos en el idioma que corresponda; los de texto libre
+admiten una variante en inglés, y si falta se cae al castellano.
+
+**El salario se convierte entre períodos, nunca entre monedas.** Se guarda monto +
+moneda + período, y el label dice qué pide: *hourly rate*, *expected annual salary
+(USD)*. Pasar de mes a año es aritmética; pasar de dólares a pesos no, porque el tipo de
+cambio se mueve y en Argentina hay varios a la vez. Si el formulario pide una moneda que
+no está cargada, se avisa en vez de inventar una cifra.
+
+**El permiso de trabajo es una lista de regiones.** «¿Estás autorizado a trabajar en la
+UE?» no se contesta con una frase, se contesta con Sí o No. Guardás dónde podés trabajar
+y el motor resuelve según qué región menciona la pregunta. El patrocinio de visa se
+deduce de ahí, invertido: si podés trabajar ahí, no necesitás que te patrocinen.
+
 ### El relleno
 
 Lo más importante del proyecto son diez líneas en `filler.ts`.
@@ -67,15 +91,18 @@ ninguna llega al umbral no se toca nada y se reporta: mejor vacío que el país 
 
 ---
 
-## Los seis campos sensibles
+## Los campos sensibles
 
-`salaryExpectation` · `workAuthorization` · `requiresSponsorship` · `nationalId` ·
-`address` · `coverLetter`
+Salario (pretendido y actual), permiso de trabajo, patrocinio de visa, situación
+migratoria, documento, fecha de nacimiento, dirección, carta de presentación y los
+cuatro campos EEO de los formularios estadounidenses.
 
 No se rellenan solos. Se resaltan en naranja para completarlos a mano. Un salario mal
-puesto o un "requiero visa" equivocado queman la aplicación, y se piensan caso por caso.
+puesto o un «requiero visa» equivocado queman la aplicación, y se piensan caso por caso.
 
-Hay un ajuste para rellenarlos igual, apagado por defecto.
+**Pero sí se resuelven**: el popup te muestra el valor que corresponde a *ese* campo —la
+cifra ya convertida al período y la moneda que pide— con un botón para copiarlo. Hay un
+ajuste para rellenarlos automáticamente, apagado por defecto.
 
 ---
 
@@ -97,7 +124,7 @@ Hay un ajuste para rellenarlos igual, apagado por defecto.
 ```bash
 npm install
 npm run dev      # carga la extensión en un Chrome de desarrollo, con hot reload
-npm test         # 31 tests sobre el matcher y el motor
+npm test         # 61 tests sobre el matcher, la resolución y el motor
 npm run build    # .output/chrome-mv3
 npm run zip      # paquete para la Chrome Web Store
 ```
@@ -112,6 +139,8 @@ src/
 ├── core/
 │   ├── fields.ts      # el diccionario
 │   ├── normalize.ts   # texto a forma canónica, tokens, similitud
+│   ├── context.ts     # idioma de la página, período, moneda y región del campo
+│   ├── resolve.ts     # del perfil al texto exacto que va en este campo
 │   ├── matcher.ts     # la cascada + recorrido del DOM y shadow DOM
 │   ├── filler.ts      # el setter nativo, selects, radios, resaltado
 │   ├── engine.ts      # arma el informe aplicando las políticas

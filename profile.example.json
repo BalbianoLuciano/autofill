@@ -1,25 +1,37 @@
 {
-  "version": 1,
-  "_comment": "Datos ficticios. El perfil real vive en chrome.storage.local y nunca se commitea. Este archivo existe para mostrar la forma del JSON que acepta Importar.",
+  "version": 2,
+  "_comment": "Datos ficticios. El perfil real vive en chrome.storage.local y nunca se commitea. Este archivo muestra la forma del JSON que acepta Importar.",
   "profile": {
-    "firstName": "Ada",
-    "lastName": "Lovelace",
-    "fullName": "Ada Lovelace",
-    "email": "ada@example.com",
-    "phone": "+34 600 000 000",
-    "linkedin": "https://linkedin.com/in/ejemplo",
-    "github": "https://github.com/ejemplo",
-    "portfolio": "https://ejemplo.github.io",
-    "city": "Madrid",
-    "country": "España",
-    "postalCode": "28001",
-    "currentTitle": "Frontend Engineer",
-    "currentCompany": "Analytical Engines S.L.",
-    "yearsExperience": "7",
-    "noticePeriod": "15 días",
-    "englishLevel": "C1",
-    "education": "Ingeniería en Sistemas",
-    "howDidYouHear": "LinkedIn"
+    "firstName": { "kind": "text", "es": "Ada" },
+    "lastName": { "kind": "text", "es": "Lovelace" },
+    "fullName": { "kind": "text", "es": "Ada Lovelace" },
+    "email": { "kind": "text", "es": "ada@example.com" },
+    "phone": { "kind": "text", "es": "+34 600 000 000" },
+    "linkedin": { "kind": "text", "es": "https://linkedin.com/in/ejemplo" },
+    "github": { "kind": "text", "es": "https://github.com/ejemplo" },
+
+    "city": { "kind": "text", "es": "Madrid", "en": "Madrid" },
+    "country": { "kind": "text", "es": "España", "en": "Spain" },
+
+    "currentTitle": { "kind": "text", "es": "Ingeniera de software", "en": "Software Engineer" },
+    "education": { "kind": "text", "es": "Ingeniería en Sistemas", "en": "BSc in Computer Science" },
+    "yearsExperience": { "kind": "text", "es": "7" },
+
+    "noticePeriod": { "kind": "choice", "code": "2weeks" },
+    "englishLevel": { "kind": "choice", "code": "c1" },
+    "workModality": { "kind": "choice", "code": "remote" },
+    "willingToRelocate": { "kind": "choice", "code": "maybe" },
+
+    "salaryExpectation": {
+      "kind": "salary",
+      "hoursPerMonth": 160,
+      "entries": [
+        { "amount": 4000, "currency": "EUR", "period": "month" },
+        { "amount": 4500, "currency": "USD", "period": "month" }
+      ]
+    },
+
+    "workAuthorization": { "kind": "regions", "codes": ["ES", "EU"] }
   },
   "mappings": {
     "boards.greenhouse.io": {
@@ -28,6 +40,7 @@
   },
   "settings": {
     "fillSensitive": false,
-    "overwriteFilled": false
+    "overwriteFilled": false,
+    "language": "auto"
   }
 }
