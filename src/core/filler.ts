@@ -42,14 +42,19 @@ export function setValue(el: HTMLInputElement | HTMLTextAreaElement, value: stri
  */
 export function setSelectValue(
   el: HTMLSelectElement,
-  value: string,
+  candidates: string[],
 ): { ok: true } | { ok: false; options: string[] } {
   const options = Array.from(el.options).filter((o) => o.value !== '' && !o.disabled);
 
+  // Se prueban todos los candidatos contra todas las opciones. El perfil
+  // guarda un codigo, no una etiqueta, asi que "b2" tambien tiene que poder
+  // encontrar "B2 - Upper intermediate" y "Professional working proficiency".
   let best: { option: HTMLOptionElement; score: number } | null = null;
   for (const option of options) {
-    const score = Math.max(similarity(option.text, value), similarity(option.value, value));
-    if (best === null || score > best.score) best = { option, score };
+    for (const value of candidates) {
+      const score = Math.max(similarity(option.text, value), similarity(option.value, value));
+      if (best === null || score > best.score) best = { option, score };
+    }
   }
 
   if (!best || best.score < 0.72) {
@@ -65,14 +70,16 @@ export function setSelectValue(
 /** Lo mismo para un grupo de radios: marca el que mejor se parece al valor. */
 export function setRadioValue(
   group: HTMLInputElement[],
-  value: string,
+  candidates: string[],
 ): { ok: true } | { ok: false; options: string[] } {
   const labelled = group.map((input) => ({ input, text: radioLabel(input) }));
 
   let best: { input: HTMLInputElement; score: number } | null = null;
   for (const { input, text } of labelled) {
-    const score = Math.max(similarity(text, value), similarity(input.value, value));
-    if (best === null || score > best.score) best = { input, score };
+    for (const value of candidates) {
+      const score = Math.max(similarity(text, value), similarity(input.value, value));
+      if (best === null || score > best.score) best = { input, score };
+    }
   }
 
   if (!best || best.score < 0.72) {
@@ -96,16 +103,25 @@ function radioLabel(input: HTMLInputElement): string {
  */
 export function fill(
   el: Fillable,
-  value: string,
+  candidates: string[],
   group?: HTMLInputElement[],
 ): { ok: true } | { ok: false; options: string[] } {
-  if (el instanceof HTMLSelectElement) return setSelectValue(el, value);
-  if (group && group.length > 0) return setRadioValue(group, value);
+  if (candidates.length === 0) return { ok: false, options: [] };
+  if (el instanceof HTMLSelectElement) return setSelectValue(el, candidates);
+  if (group && group.length > 0) return setRadioValue(group, candidates);
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-    setValue(el, value);
+    // En un input de texto va el primer candidato: los demas existen para
+    // elegir entre opciones ya escritas, no para escribirse.
+    setValue(el, candidates[0]!);
     return { ok: true };
   }
   return { ok: false, options: [] };
+}
+
+/** true si el input solo acepta numeros. Decide si el salario lleva unidades. */
+export function isNumericInput(el: Fillable): boolean {
+  if (!(el instanceof HTMLInputElement)) return false;
+  return el.type === 'number' || /^(numeric|decimal)$/.test(el.inputMode ?? '');
 }
 
 /* --------------------------------- resaltado --------------------------------- */

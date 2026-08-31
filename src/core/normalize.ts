@@ -81,7 +81,16 @@ export function similarity(a: string, b: string): number {
   const tokenScore = shared / Math.max(ta.size, tb.size);
 
   // Uno contiene al otro entero: `argentina` dentro de `argentina (arg)`.
-  const containment = na.includes(nb) || nb.includes(na) ? 0.75 : 0;
+  //
+  // Con un minimo de tres caracteres y proporcional a cuanto cubre. Sin eso,
+  // el `1` de un `<option value="1">` queda contenido en `c1` y se lleva el
+  // puesto de la opcion correcta: una coincidencia de un caracter valia lo
+  // mismo que una frase entera.
+  const [shorter, longer] = na.length <= nb.length ? [na, nb] : [nb, na];
+  const containment =
+    shorter.length >= 3 && longer.includes(shorter)
+      ? 0.6 + 0.35 * (shorter.length / longer.length)
+      : 0;
 
   let prefix = 0;
   const limit = Math.min(na.length, nb.length);
