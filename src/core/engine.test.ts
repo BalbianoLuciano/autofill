@@ -28,6 +28,9 @@ const SETTINGS: Settings = {
   fillSensitive: false,
   overwriteFilled: false,
   language: 'auto',
+  autoApply: false,
+  autoApplyDelay: 5,
+  attachCv: false,
 };
 
 function render(html: string, lang = 'en'): void {
@@ -39,7 +42,12 @@ function render(html: string, lang = 'en'): void {
 }
 
 const run = (overrides: Partial<Settings> = {}) =>
-  runFill({ profile: PROFILE, mappings: {}, settings: { ...SETTINGS, ...overrides } });
+  runFill({
+    profile: PROFILE,
+    mappings: {},
+    questions: [],
+    settings: { ...SETTINGS, ...overrides },
+  });
 
 const input = (name: string) => document.querySelector<HTMLInputElement>(`[name="${name}"]`)!;
 const select = (name: string) => document.querySelector<HTMLSelectElement>(`[name="${name}"]`)!;
