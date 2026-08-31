@@ -9,13 +9,21 @@
  */
 
 import { browser } from 'wxt/browser';
-import { FIELDS, type FieldKey } from './fields';
-import type { FieldSignature, Mappings, Profile, Settings, Store } from '../types';
+import { FIELDS, FIELD_BY_KEY, kindOf, type FieldKey } from './fields';
+import { similarity } from './normalize';
+import type {
+  Currency, FieldSignature, Mappings, Profile, ProfileValue, RegionCode,
+  SalaryEntry, Settings, Store,
+} from '../types';
 
 const KEY = 'autofill.store';
-const VERSION = 1;
+const VERSION = 2;
 
-export const DEFAULT_SETTINGS: Settings = { fillSensitive: false, overwriteFilled: false };
+export const DEFAULT_SETTINGS: Settings = {
+  fillSensitive: false,
+  overwriteFilled: false,
+  language: 'auto',
+};
 
 const EMPTY_STORE: Store = { profile: {}, mappings: {}, settings: DEFAULT_SETTINGS };
 
@@ -23,12 +31,19 @@ interface Persisted extends Store {
   version: number;
 }
 
+const VALID_KEYS = new Set<string>(FIELDS.map((f) => f.key));
+
 export async function getStore(): Promise<Store> {
   const raw = await browser.storage.local.get(KEY);
   const stored = raw[KEY] as Partial<Persisted> | undefined;
   if (!stored) return structuredClone(EMPTY_STORE);
+
   return {
-    profile: stored.profile ?? {},
+    // La v1 guardaba texto plano por campo. Se convierte al vuelo para no
+    // perder un perfil que ya estaba cargado.
+    profile: (stored.version ?? 1) < 2
+      ? migrateFromV1(stored.profile as unknown as Record<string, string>)
+      : sanitizeProfile(stored.profile),
     mappings: stored.mappings ?? {},
     settings: { ...DEFAULT_SETTINGS, ...stored.settings },
   };
@@ -45,14 +60,7 @@ export async function getProfile(): Promise<Profile> {
 
 export async function saveProfile(profile: Profile): Promise<void> {
   const store = await getStore();
-  // Un campo vacio se borra en vez de guardarse como '': asi el motor sabe
-  // distinguir "no tengo el dato" de "el dato es cadena vacia".
-  const cleaned: Profile = {};
-  for (const [key, value] of Object.entries(profile) as [FieldKey, string][]) {
-    const trimmed = value?.trim();
-    if (trimmed) cleaned[key] = trimmed;
-  }
-  await setStore({ ...store, profile: cleaned });
+  await setStore({ ...store, profile: sanitizeProfile(profile) });
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -64,6 +72,175 @@ export async function saveSettings(settings: Partial<Settings>): Promise<void> {
   await setStore({ ...store, settings: { ...store.settings, ...settings } });
 }
 
+/* -------------------------------- limpieza -------------------------------- */
+
+/** Descarta lo que no tenga forma valida en vez de dejar que rompa el motor. */
+export function sanitizeProfile(profile: Profile | undefined): Profile {
+  const clean: Profile = {};
+  for (const [key, value] of Object.entries(profile ?? {})) {
+    if (!VALID_KEYS.has(key) || !value || typeof value !== 'object') continue;
+    const sanitized = sanitizeValue(key as FieldKey, value as ProfileValue);
+    if (sanitized) clean[key as FieldKey] = sanitized;
+  }
+  return clean;
+}
+
+function sanitizeValue(key: FieldKey, value: ProfileValue): ProfileValue | null {
+  switch (value.kind) {
+    case 'text': {
+      const es = value.es?.trim();
+      const en = value.en?.trim();
+      // Un campo vacio se borra en vez de guardarse como '': asi el motor sabe
+      // distinguir "no tengo el dato" de "el dato es cadena vacia".
+      if (!es && !en) return null;
+      return { kind: 'text', ...(es ? { es } : {}), ...(en ? { en } : {}) };
+    }
+    case 'choice': {
+      const exists = FIELD_BY_KEY.get(key)?.options?.some((o) => o.code === value.code);
+      return exists ? { kind: 'choice', code: value.code } : null;
+    }
+    case 'salary': {
+      const entries = (value.entries ?? []).filter(
+        (e) => Number.isFinite(e.amount) && e.amount > 0,
+      );
+      if (entries.length === 0) return null;
+      const hours = Number.isFinite(value.hoursPerMonth) && value.hoursPerMonth > 0
+        ? value.hoursPerMonth
+        : 160;
+      return { kind: 'salary', entries, hoursPerMonth: hours };
+    }
+    case 'regions': {
+      const codes = (value.codes ?? []).filter((c) => c in REGION_WORDS);
+      return codes.length > 0 ? { kind: 'regions', codes } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/* ------------------------------- migracion ------------------------------- */
+
+const REGION_WORDS: Record<RegionCode, string[]> = {
+  AR: ['argentina', 'argentino', 'argentine'],
+  ES: ['espana', 'españa', 'spain', 'spanish', 'espanola'],
+  EU: ['union europea', 'unión europea', 'european union', 'europa', 'europe', 'ue', 'eu'],
+  US: ['estados unidos', 'united states', 'usa', 'eeuu'],
+  UK: ['reino unido', 'united kingdom', 'uk'],
+  CA: ['canada', 'canadá'],
+  MX: ['mexico', 'méxico'],
+  BR: ['brasil', 'brazil'],
+};
+
+/**
+ * Convierte un perfil de la v1, donde todo era texto plano.
+ *
+ * Es mejor esfuerzo: adivina la opcion, la moneda y las regiones a partir de
+ * lo que la persona habia escrito a mano. Lo que no se pueda interpretar se
+ * pierde, asi que el popup se abre igual para revisar.
+ */
+export function migrateFromV1(old: Record<string, string> | undefined): Profile {
+  const profile: Profile = {};
+  if (!old) return profile;
+
+  for (const [rawKey, rawValue] of Object.entries(old)) {
+    if (!VALID_KEYS.has(rawKey) || typeof rawValue !== 'string') continue;
+    const key = rawKey as FieldKey;
+    const text = rawValue.trim();
+    if (!text) continue;
+
+    switch (kindOf(key)) {
+      case 'text':
+        profile[key] = { kind: 'text', es: text };
+        break;
+
+      case 'choice': {
+        const code = guessChoice(key, text);
+        if (code) profile[key] = { kind: 'choice', code };
+        break;
+      }
+
+      case 'salary': {
+        const entries = parseSalary(text);
+        if (entries.length > 0) profile[key] = { kind: 'salary', entries, hoursPerMonth: 160 };
+        break;
+      }
+
+      case 'regions': {
+        const codes = parseRegions(text);
+        if (codes.length > 0) profile[key] = { kind: 'regions', codes };
+        break;
+      }
+    }
+  }
+
+  return profile;
+}
+
+function guessChoice(key: FieldKey, text: string): string | null {
+  const options = FIELD_BY_KEY.get(key)?.options ?? [];
+  let best: { code: string; score: number } | null = null;
+
+  for (const option of options) {
+    for (const candidate of [option.es, option.en, ...(option.match ?? [])]) {
+      const score = similarity(candidate, text);
+      if (best === null || score > best.score) best = { code: option.code, score };
+    }
+  }
+
+  return best && best.score >= 0.6 ? best.code : null;
+}
+
+/** Saca los montos de algo escrito a mano: "2500 usd o 3500000". */
+export function parseSalary(text: string): SalaryEntry[] {
+  const entries: SalaryEntry[] = [];
+  const seen = new Set<Currency>();
+
+  // Se parte primero por los separadores y se lee cada parte sola. Mirar hacia
+  // atras desde el numero no sirve: en "2500 usd o 3500000", el segundo monto
+  // se lleva el `usd` del primero y termina descartado por duplicado.
+  const chunks = text.toLowerCase().split(/\s+(?:o|or|y|and)\s+|[/|,;]+/);
+
+  for (const chunk of chunks) {
+    const found = chunk.match(/\d[\d.\s]*\d|\d/);
+    if (!found) continue;
+
+    const amount = Number(found[0].replace(/[.,\s]/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+
+    let currency: Currency;
+    if (/usd|u\$s|dolar|dollar/.test(chunk)) currency = 'USD';
+    else if (/eur|€/.test(chunk)) currency = 'EUR';
+    else if (/ars|peso/.test(chunk)) currency = 'ARS';
+    // Sin moneda declarada decide la magnitud: nadie pide 3.500.000 dolares
+    // por mes ni 2.500 pesos.
+    else currency = amount >= 100_000 ? 'ARS' : 'USD';
+
+    if (seen.has(currency)) continue;
+    seen.add(currency);
+
+    const period = /hora|hour|\/h/.test(chunk)
+      ? 'hour'
+      : /anual|annual|ano|year/.test(chunk)
+        ? 'year'
+        : 'month';
+
+    entries.push({ amount, currency, period });
+  }
+
+  return entries;
+}
+
+export function parseRegions(text: string): RegionCode[] {
+  const lower = ` ${text.toLowerCase()} `;
+  const codes: RegionCode[] = [];
+  for (const [code, words] of Object.entries(REGION_WORDS) as [RegionCode, string[]][]) {
+    if (words.some((word) => lower.includes(` ${word} `) || lower.includes(`${word},`))) {
+      codes.push(code);
+    }
+  }
+  return codes;
+}
+
 /* --------------------------------- mappings --------------------------------- */
 
 export async function getMappings(hostname: string): Promise<Record<FieldSignature, FieldKey>> {
@@ -73,7 +250,7 @@ export async function getMappings(hostname: string): Promise<Record<FieldSignatu
 
 /**
  * Guarda lo aprendido: en este sitio, este campo es esta clave del perfil.
- * Es el paso 7 del orden de trabajo y lo que hace que la extension mejore sola.
+ * Es lo que hace que la extension mejore sola.
  */
 export async function learnMapping(
   hostname: string,
@@ -101,8 +278,8 @@ export async function forgetMapping(
 /* ----------------------------- export / import ----------------------------- */
 
 /**
- * Los datos no quedan atrapados en el navegador (§7). El JSON que sale de aca
- * entra tal cual en `importJson`.
+ * Los datos no quedan atrapados en el navegador. El JSON que sale de aca entra
+ * tal cual en `importJson`.
  */
 export async function exportJson(): Promise<string> {
   const store = await getStore();
@@ -116,20 +293,16 @@ export async function importJson(json: string): Promise<Store> {
   }
   const candidate = parsed as Partial<Persisted>;
 
-  const validKeys = new Set<string>(FIELDS.map((f) => f.key));
-  const profile: Profile = {};
-  for (const [key, value] of Object.entries(candidate.profile ?? {})) {
-    if (validKeys.has(key) && typeof value === 'string' && value.trim()) {
-      profile[key as FieldKey] = value.trim();
-    }
-  }
+  const profile = (candidate.version ?? 1) < 2
+    ? migrateFromV1(candidate.profile as unknown as Record<string, string>)
+    : sanitizeProfile(candidate.profile);
 
   const mappings: Mappings = {};
   for (const [hostname, entries] of Object.entries(candidate.mappings ?? {})) {
     if (typeof entries !== 'object' || entries === null) continue;
     const forHost: Record<FieldSignature, FieldKey> = {};
     for (const [signature, key] of Object.entries(entries)) {
-      if (typeof key === 'string' && validKeys.has(key)) forHost[signature] = key as FieldKey;
+      if (typeof key === 'string' && VALID_KEYS.has(key)) forHost[signature] = key as FieldKey;
     }
     if (Object.keys(forHost).length > 0) mappings[hostname] = forHost;
   }
