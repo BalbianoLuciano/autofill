@@ -10,9 +10,14 @@ import { browser } from 'wxt/browser';
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(({ reason }) => {
-    if (reason === 'install') {
-      // Primera instalacion: el perfil esta vacio, hay que llenarlo.
-      void browser.action.openPopup?.().catch(() => {});
-    }
+    if (reason !== 'install') return;
+
+    // `action.openPopup()` exige un gesto del usuario, y `onInstalled` no lo
+    // es: desde aca siempre falla. La misma pagina abierta como pestana sirve
+    // igual de onboarding, y no hay nada que rellenar hasta que el perfil
+    // tenga datos.
+    void browser.tabs.create({
+      url: `${browser.runtime.getURL('/popup.html')}?onboarding=1`,
+    });
   });
 });

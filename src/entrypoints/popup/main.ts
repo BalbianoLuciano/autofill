@@ -9,7 +9,9 @@
 import { browser } from 'wxt/browser';
 import { FIELDS, FIELD_BY_KEY, type FieldKey } from '../../core/fields';
 import {
+  clearAll,
   exportJson,
+  forgetMapping,
   getMappings,
   getStore,
   importJson,
@@ -17,7 +19,7 @@ import {
   saveProfile,
   saveSettings,
 } from '../../core/storage';
-import type { FillReport, Profile, SkippedField } from '../../types';
+import type { FilledField, FillReport, Profile, SkippedField } from '../../types';
 import { FIELD_LABELS, GROUPS, SKIP_REASON_LABELS } from './labels';
 
 /** El motor compilado. WXT lo publica en la raiz del paquete. */
@@ -120,14 +122,41 @@ $<HTMLButtonElement>('#export').addEventListener('click', async () => {
   const json = await exportJson();
   const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
   try {
-    await browser.downloads.download({ url, filename: 'autofill-perfil.json', saveAs: true });
-    setStatus('Exportado.');
+    // `saveAs: true` abre el dialogo nativo, que le saca el foco al popup; al
+    // cerrarse el popup se destruye su documento y con el muere el blob, asi
+    // que la descarga se cancela sola. Sin dialogo, el popup sigue vivo.
+    await browser.downloads.download({ url, filename: 'autofill-perfil.json' });
+    setStatus('Exportado a Descargas.');
   } catch {
     setStatus('No se pudo exportar.', 'error');
   } finally {
-    // El blob se libera recien despues de que la descarga arranco.
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
+});
+
+const clearButton = $<HTMLButtonElement>('#clear');
+
+clearButton.addEventListener('click', async () => {
+  // Dos pasos en vez de un confirm(): el dialogo nativo le saca el foco al
+  // popup y lo cierra, asi que la confirmacion nunca se llegaria a ver.
+  if (clearButton.dataset.armed !== 'true') {
+    clearButton.dataset.armed = 'true';
+    clearButton.textContent = 'Borrar todo, en serio';
+    window.setTimeout(() => {
+      clearButton.dataset.armed = 'false';
+      clearButton.textContent = 'Borrar todo';
+    }, 4000);
+    return;
+  }
+
+  await clearAll();
+  profile = {};
+  renderProfileForm(profile);
+  $<HTMLInputElement>('#fill-sensitive').checked = false;
+  $<HTMLInputElement>('#overwrite-filled').checked = false;
+  clearButton.dataset.armed = 'false';
+  clearButton.textContent = 'Borrar todo';
+  setStatus('Se borro el perfil y todo lo aprendido.');
 });
 
 const importInput = $<HTMLInputElement>('#import-file');
@@ -216,7 +245,9 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
 /* -------------------------------- resultado -------------------------------- */
 
 function renderReports(frames: FrameReport[]): void {
-  const filled = frames.flatMap((f) => f.report.filled);
+  const filled = frames.flatMap((f) =>
+    f.report.filled.map((item) => ({ ...item, hostname: f.report.hostname })),
+  );
   const skipped = frames.flatMap((f) =>
     f.report.skipped.map((s) => ({ ...s, frameId: f.frameId, hostname: f.report.hostname })),
   );
@@ -237,9 +268,7 @@ function renderReports(frames: FrameReport[]): void {
   resultBox.append(summary);
 
   if (filled.length > 0) {
-    resultBox.append(
-      section('ok', 'Completados', filled.map((f) => item(FIELD_LABELS[f.key], f.value))),
-    );
+    resultBox.append(section('ok', 'Completados', filled.map(filledItem)));
   }
 
   const sensitive = skipped.filter((s) => s.reason === 'sensitive');
@@ -285,7 +314,30 @@ function renderReports(frames: FrameReport[]): void {
   }
 }
 
+type LocatedFill = FilledField & { hostname: string };
 type LocatedSkip = SkippedField & { frameId: number; hostname: string };
+
+/**
+ * Un campo completado. Si vino de un mapping aprendido lleva un boton para
+ * desaprenderlo: es la unica forma de corregir una asignacion equivocada, que
+ * si no queda pegada para siempre en ese sitio.
+ */
+function filledItem(field: LocatedFill): HTMLLIElement {
+  const li = item(FIELD_LABELS[field.key], field.value);
+  if (field.via !== 'learned') return li;
+
+  const forget = document.createElement('button');
+  forget.className = 'link';
+  forget.textContent = 'Aprendido acá · olvidar';
+  forget.addEventListener('click', async () => {
+    await forgetMapping(field.hostname, field.signature);
+    forget.textContent = 'Olvidado. Se vuelve a adivinar la próxima.';
+    forget.disabled = true;
+  });
+
+  li.append(forget);
+  return li;
+}
 
 /**
  * Un campo sin reconocer, con un desplegable para asignarlo.
@@ -390,6 +442,10 @@ function renderError(error: unknown): void {
 /* --------------------------------- arranque --------------------------------- */
 
 async function init(): Promise<void> {
+  if (new URLSearchParams(location.search).has('onboarding')) {
+    document.body.classList.add('as-tab');
+  }
+
   const store = await getStore();
   profile = store.profile;
   renderProfileForm(profile);
