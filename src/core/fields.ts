@@ -40,6 +40,12 @@ export interface ChoiceOption {
   es: string;
   en: string;
   /**
+   * Dias desde hoy. Un `<input type="date">` descarta en silencio cualquier
+   * cosa que no sea YYYY-MM-DD, asi que "Inmediata" ahi no sirve: hay que
+   * darle la fecha de verdad.
+   */
+  offsetDays?: number;
+  /**
    * Como puede aparecer escrita esta opcion en el select del formulario.
    * Se usa para elegir la opcion correcta cuando el texto no coincide exacto.
    */
@@ -300,11 +306,30 @@ export const FIELDS: FieldDef[] = [
   },
   {
     key: 'startDate',
-    kind: 'text',
-    localized: true,
+    kind: 'choice',
+    options: [
+      {
+        code: 'today', es: 'Inmediata', en: 'Immediately', offsetDays: 0,
+        match: ['immediate', 'immediately', 'asap', 'now', 'today',
+                'inmediata', 'inmediato', 'ya', 'hoy'],
+      },
+      {
+        code: '1week', es: 'En una semana', en: 'In a week', offsetDays: 7,
+        match: ['1 week', 'one week', 'una semana'],
+      },
+      {
+        code: '2weeks', es: 'En dos semanas', en: 'In two weeks', offsetDays: 14,
+        match: ['2 weeks', 'two weeks', 'dos semanas', '15 days', '15 dias'],
+      },
+      {
+        code: '1month', es: 'En un mes', en: 'In a month', offsetDays: 30,
+        match: ['1 month', 'one month', 'un mes', '30 days', '30 dias'],
+      },
+    ],
     aliases: [
       'start date', 'preferred start date', 'available start date',
-      'fecha de inicio', 'fecha de disponibilidad',
+      'when can you start working', 'earliest availability',
+      'fecha de inicio', 'fecha de disponibilidad', 'fecha de incorporacion',
     ],
   },
   {

@@ -101,6 +101,29 @@ function radioLabel(input: HTMLInputElement): string {
 /**
  * Rellena cualquier control. Devuelve por que no pudo, si no pudo.
  */
+/**
+ * Un slider de salario. Se acota la pretension al rango que el formulario
+ * admite y se respeta el paso: un `range` fuera de rango se recorta solo, y
+ * uno con un valor intermedio al `step` se redondea sin avisar.
+ */
+export function setRangeValue(
+  el: HTMLInputElement,
+  candidates: string[],
+): { ok: true } | { ok: false; options: string[] } {
+  const wanted = candidates.map((c) => Number(c.replace(/[^\d.-]/g, ''))).find(Number.isFinite);
+  if (wanted === undefined) return { ok: false, options: [] };
+
+  const min = Number(el.min || 0);
+  const max = Number(el.max || 100);
+  const step = Number(el.step || 1) || 1;
+
+  const clamped = Math.min(max, Math.max(min, wanted));
+  const stepped = min + Math.round((clamped - min) / step) * step;
+
+  setValue(el, String(Math.min(max, Math.max(min, stepped))));
+  return { ok: true };
+}
+
 export function fill(
   el: Fillable,
   candidates: string[],
@@ -108,6 +131,7 @@ export function fill(
 ): { ok: true } | { ok: false; options: string[] } {
   if (candidates.length === 0) return { ok: false, options: [] };
   if (el instanceof HTMLSelectElement) return setSelectValue(el, candidates);
+  if (el instanceof HTMLInputElement && el.type === 'range') return setRangeValue(el, candidates);
   if (group && group.length > 0) return setRadioValue(group, candidates);
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     // En un input de texto va el primer candidato: los demas existen para
@@ -121,7 +145,8 @@ export function fill(
 /** true si el input solo acepta numeros. Decide si el salario lleva unidades. */
 export function isNumericInput(el: Fillable): boolean {
   if (!(el instanceof HTMLInputElement)) return false;
-  return el.type === 'number' || /^(numeric|decimal)$/.test(el.inputMode ?? '');
+  if (el.type === 'number' || el.type === 'range') return true;
+  return /^(numeric|decimal)$/.test(el.inputMode ?? '');
 }
 
 /* --------------------------------- resaltado --------------------------------- */

@@ -17,6 +17,29 @@ export interface ResolveContext {
   qualifiers: Qualifiers;
   /** El input solo acepta numeros: nada de "2500 USD por mes". */
   numeric?: boolean;
+  /** El `type` del input, que decide el formato de las fechas. */
+  inputType?: string;
+}
+
+/** Los tipos que exigen una fecha con formato, no una palabra. */
+const DATE_INPUTS = new Set(['date', 'month', 'week', 'datetime-local']);
+
+/**
+ * La fecha que corresponde a un desplazamiento en dias, con el formato que
+ * pide ese input. Sin esto, un `type="date"` recibe "Inmediata" y la descarta
+ * sin decir nada: queda igual de vacio que antes, pero parece que funciono.
+ */
+export function formatDate(offsetDays: number, inputType: string, now = new Date()): string {
+  const date = new Date(now);
+  date.setDate(date.getDate() + offsetDays);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  if (inputType === 'month') return `${year}-${month}`;
+  if (inputType === 'datetime-local') return `${year}-${month}-${day}T09:00`;
+  return `${year}-${month}-${day}`;
 }
 
 export interface Resolution {
@@ -69,6 +92,11 @@ function resolveText(value: Extract<ProfileValue, { kind: 'text' }>, ctx: Resolv
 function resolveChoice(key: FieldKey, code: string, ctx: ResolveContext): Resolution {
   const option = FIELD_BY_KEY.get(key)?.options?.find((o) => o.code === code);
   if (!option) return EMPTY;
+
+  // Un campo de fecha quiere una fecha, no la etiqueta de la opcion.
+  if (option.offsetDays !== undefined && ctx.inputType && DATE_INPUTS.has(ctx.inputType)) {
+    return { candidates: [formatDate(option.offsetDays, ctx.inputType)] };
+  }
 
   // La etiqueta del idioma de la pagina primero; despues la del otro idioma y
   // los sinonimos, que son los que salvan un select escrito de otra forma.

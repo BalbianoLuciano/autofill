@@ -16,9 +16,12 @@ import type { FieldSignature, MatchSource } from '../types';
 export type Fillable = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 /** Tipos de input que no se tocan nunca. */
+// `file` queda afuera de aca porque lo maneja el modulo de CVs, que necesita
+// construir un FileList en vez de escribir texto. `range` si entra: un salario
+// puede venir como slider, y antes se salteaba en silencio.
 const IGNORED_INPUT_TYPES = new Set([
   'hidden', 'submit', 'button', 'reset', 'image', 'file', 'password', 'checkbox',
-  'search', 'range', 'color',
+  'search', 'color',
 ]);
 
 export interface DetectedField {
