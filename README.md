@@ -11,7 +11,7 @@ completa. **No** aplica solo: rellena, y la persona revisa y envía.
 
 Tres partes:
 
-- **Diccionario** (`src/core/fields.ts`) — 26 campos del perfil y 315 formas en que un
+- **Diccionario** (`src/core/fields.ts`) — 26 campos del perfil y 298 formas en que un
   formulario puede pedirlos, en inglés, español, francés, alemán y portugués.
 - **Motor** (`matcher.ts` + `filler.ts` + `engine.ts`) — encuentra los campos en la
   página y los completa.

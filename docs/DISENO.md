@@ -71,7 +71,7 @@ autofill/
 ## 4. El diccionario
 
 **Ya está escrito** en `~/Documents/PersonalRepos/autofill/src/core/fields.ts`.
-Moverlo al repo nuevo. Son 26 campos y 315 formas de reconocerlos, en inglés,
+Moverlo al repo nuevo. Son 26 campos y 298 formas de reconocerlos, en inglés,
 español, francés, alemán y portugués.
 
 Si el archivo no está, regenerarlo con esta forma:
