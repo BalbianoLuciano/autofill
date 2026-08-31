@@ -11,9 +11,10 @@
 import { browser } from 'wxt/browser';
 import { FIELDS, FIELD_BY_KEY, kindOf, type FieldKey } from './fields';
 import { similarity } from './normalize';
+import { upsertQuestion } from './questions';
 import type {
-  Currency, FieldSignature, Mappings, Profile, ProfileValue, RegionCode,
-  SalaryEntry, Settings, Store,
+  Currency, CustomQuestion, FieldSignature, Mappings, Profile, ProfileValue,
+  RegionCode, SalaryEntry, Settings, Store,
 } from '../types';
 
 const KEY = 'autofill.store';
@@ -23,9 +24,18 @@ export const DEFAULT_SETTINGS: Settings = {
   fillSensitive: false,
   overwriteFilled: false,
   language: 'auto',
+  // Apagado por defecto y a proposito: enviar no se puede deshacer.
+  autoApply: false,
+  autoApplyDelay: 5,
+  attachCv: true,
 };
 
-const EMPTY_STORE: Store = { profile: {}, mappings: {}, settings: DEFAULT_SETTINGS };
+const EMPTY_STORE: Store = {
+  profile: {},
+  mappings: {},
+  settings: DEFAULT_SETTINGS,
+  questions: [],
+};
 
 interface Persisted extends Store {
   version: number;
@@ -46,6 +56,7 @@ export async function getStore(): Promise<Store> {
       : sanitizeProfile(stored.profile),
     mappings: stored.mappings ?? {},
     settings: { ...DEFAULT_SETTINGS, ...stored.settings },
+    questions: Array.isArray(stored.questions) ? stored.questions : [],
   };
 }
 
@@ -61,6 +72,38 @@ export async function getProfile(): Promise<Profile> {
 export async function saveProfile(profile: Profile): Promise<void> {
   const store = await getStore();
   await setStore({ ...store, profile: sanitizeProfile(profile) });
+}
+
+/* ------------------------- preguntas propias ------------------------- */
+
+export async function getQuestions(): Promise<CustomQuestion[]> {
+  return (await getStore()).questions;
+}
+
+export async function saveQuestions(questions: CustomQuestion[]): Promise<void> {
+  const store = await getStore();
+  await setStore({ ...store, questions });
+}
+
+/**
+ * Guarda una respuesta escrita en el overlay. Si ya habia una pregunta
+ * equivalente, se actualiza en vez de duplicarse.
+ */
+export async function rememberAnswer(
+  question: string,
+  answer: string,
+  hostname?: string,
+): Promise<void> {
+  const store = await getStore();
+  await setStore({
+    ...store,
+    questions: upsertQuestion(store.questions, question, answer, hostname),
+  });
+}
+
+export async function deleteQuestion(id: string): Promise<void> {
+  const store = await getStore();
+  await setStore({ ...store, questions: store.questions.filter((q) => q.id !== id) });
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -311,6 +354,7 @@ export async function importJson(json: string): Promise<Store> {
     profile,
     mappings,
     settings: { ...DEFAULT_SETTINGS, ...candidate.settings },
+    questions: Array.isArray(candidate.questions) ? candidate.questions : [],
   };
   await setStore(store);
   return store;

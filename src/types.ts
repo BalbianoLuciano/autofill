@@ -86,12 +86,24 @@ export interface Settings {
    * Forzar un idioma en vez de detectarlo de la pagina. 'auto' es el default.
    */
   language: Lang | 'auto';
+  /**
+   * Enviar la aplicacion sola cuando no falte nada. Default: false.
+   *
+   * No se puede des-aplicar, y varios ATS bloquean volver a postularse al
+   * mismo puesto, asi que esto se prende a mano y una sola vez.
+   */
+  autoApply: boolean;
+  /** Segundos de cuenta regresiva antes de enviar, para poder cancelar. */
+  autoApplyDelay: number;
+  /** Adjuntar el CV solo. Default: true. */
+  attachCv: boolean;
 }
 
 export interface Store {
   profile: Profile;
   mappings: Mappings;
   settings: Settings;
+  questions: CustomQuestion[];
 }
 
 /**
@@ -113,6 +125,7 @@ export type SkipReason =
   | 'no-value'       // se reconocio, pero el perfil no tiene ese dato
   | 'no-currency'    // pide una moneda que el perfil no tiene cargada
   | 'no-option'      // es un select/radio y ninguna opcion se parecio al valor
+  | 'needs-answer'   // pregunta abierta sin respuesta guardada: la contestas vos
   | 'already-filled' // ya tenia contenido y no se pisa sin permiso
   | 'unmapped';      // no se pudo reconocer que campo es
 
@@ -148,12 +161,22 @@ export type MatchSource =
   | 'attributes'
   | 'nearby-text';
 
+/** Como quedo el intento de enviar la aplicacion. */
+export type ApplyOutcome =
+  | { status: 'off' }                                  // el ajuste esta apagado
+  | { status: 'incomplete'; missing: string[] }        // faltan obligatorios
+  | { status: 'no-button' }                            // no se encontro el boton
+  | { status: 'armed'; label: string };                // cuenta regresiva corriendo
+
 /** Lo que el content script devuelve despues de rellenar. */
 export interface FillReport {
   hostname: string;
   lang: Lang;
   filled: FilledField[];
   skipped: SkippedField[];
+  /** Si se adjunto el CV, y cual. */
+  cvAttached?: string;
+  apply: ApplyOutcome;
 }
 
 /* ------------------------------ mensajes ------------------------------ */
@@ -163,6 +186,16 @@ export interface RunFillMessage {
   profile: Profile;
   mappings: Record<FieldSignature, FieldKey>;
   settings: Settings;
+  questions: CustomQuestion[];
+  /** El CV elegido, ya resuelto por el popup. */
+  cv?: (CvMeta & CvBlob) | null;
+}
+
+/** Guarda la respuesta que la persona escribio en el overlay y la rellena. */
+export interface AnswerQuestionMessage {
+  type: 'AUTOFILL_ANSWER';
+  signature: FieldSignature;
+  answer: string;
 }
 
 export interface ApplyLearnedMessage {
@@ -177,4 +210,47 @@ export interface PingMessage {
   type: 'AUTOFILL_PING';
 }
 
-export type Message = RunFillMessage | ApplyLearnedMessage | PingMessage;
+export type Message =
+  | RunFillMessage
+  | ApplyLearnedMessage
+  | AnswerQuestionMessage
+  | PingMessage;
+
+/* ---------------------------- preguntas propias ---------------------------- */
+
+/**
+ * Una pregunta abierta que un formulario hizo y el diccionario no cubre
+ * ("describi la automatizacion mas compleja que construiste"). Se guarda con
+ * su respuesta y se reusa por similitud contra el label del proximo.
+ */
+export interface CustomQuestion {
+  id: string;
+  /** El texto tal como lo pidio el formulario. */
+  question: string;
+  answer: string;
+  /** Donde se vio por primera vez, para poder revisarla despues. */
+  hostname?: string;
+  updatedAt: number;
+}
+
+/* ---------------------------------- CVs ---------------------------------- */
+
+export type CvRole = 'ai' | 'lead' | 'any';
+
+export interface CvMeta {
+  id: string;
+  /** Nombre del archivo, tal como se sube al formulario. */
+  filename: string;
+  /** Como lo llamas vos en el selector: "IA Engineer · ES". */
+  label: string;
+  lang: Lang;
+  role: CvRole;
+  mime: string;
+  size: number;
+}
+
+/** El archivo en si, en base64: un content script no ve el IndexedDB de la extension. */
+export interface CvBlob {
+  id: string;
+  base64: string;
+}
