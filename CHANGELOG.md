@@ -7,6 +7,44 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.2.0
+
+De rellenar a resolver la aplicación entera: adjunta el CV, contesta las preguntas
+abiertas y —si se lo habilita— envía.
+
+**Nuevo**
+
+- **Pool de CVs.** Se guardan varios y se elige por el idioma del formulario y por el
+  puesto que anuncia la página (si dice *lead*, *manager* o *head*, va el de liderazgo).
+  Se adjunta construyendo un `FileList` con `DataTransfer`, que es el único camino:
+  `input.files` es de solo lectura por seguridad.
+- **Preguntas abiertas.** Las que el diccionario no cubre («describí la automatización
+  más compleja que construiste») aparecen en un panel sobre la página, con espacio para
+  contestarlas. La respuesta se guarda apenas se escribe y se reusa por similitud la
+  próxima vez que aparezca una parecida.
+- **Envío automático**, apagado por defecto. Exige tres condiciones a la vez: el ajuste
+  prendido, nada obligatorio vacío y un botón identificable dentro del formulario que se
+  rellenó. Antes de clickear muestra una cuenta regresiva cancelable, porque enviar no se
+  puede deshacer y varios ATS bloquean volver a postularse al mismo puesto.
+- **Fecha de inicio como opción con fecha real detrás.** `Inmediata` se convierte en la
+  fecha de hoy con el formato que pide el input.
+
+**Arreglado**
+
+- Los `<input type="range">` estaban en la lista de ignorados, así que un salario que
+  venía como slider se salteaba en silencio. Ahora se acota la pretensión al rango y se
+  respeta el `step`.
+- Los `<input type="date">` sí se procesaban, pero recibían texto («Lo más próximo») y lo
+  descartaban sin decir nada: quedaban tan vacíos como antes, pero parecía que había
+  funcionado.
+
+**Permisos**
+
+- Se suma `unlimitedStorage`: la cuota por defecto de `storage.local` es ~10 MB y cuatro
+  CVs de hasta 5 MB no entran.
+
+38 campos, 385 aliases, 82 tests.
+
 ## 1.1.0
 
 El perfil dejó de guardar texto plano y pasó a guardar **intención**. Un formulario no

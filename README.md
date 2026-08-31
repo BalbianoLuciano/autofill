@@ -112,8 +112,8 @@ ajuste para rellenarlos automáticamente, apagado por defecto.
   base de datos, no hay telemetría.
 - `storage.sync` está descartado a propósito: 8KB por item, y estos datos no tienen por
   qué viajar a los servidores de Google.
-- Sin `<all_urls>`. Los permisos son `activeTab`, `scripting`, `storage` y `downloads`
-  (este último solo para el botón Exportar).
+- Sin `<all_urls>`. Los permisos son `activeTab`, `scripting`, `storage`,
+  `unlimitedStorage` (por los CVs) y `downloads` (solo para el botón Exportar).
 - **El perfil real nunca se commitea.** `profile.example.json` tiene datos ficticios y
   muestra la forma del JSON que acepta Importar.
 
@@ -124,7 +124,7 @@ ajuste para rellenarlos automáticamente, apagado por defecto.
 ```bash
 npm install
 npm run dev      # carga la extensión en un Chrome de desarrollo, con hot reload
-npm test         # 61 tests sobre el matcher, la resolución y el motor
+npm test         # 82 tests sobre el matcher, la resolución, el envío y el motor
 npm run build    # .output/chrome-mv3
 npm run zip      # paquete para la Chrome Web Store
 ```
@@ -143,6 +143,10 @@ src/
 │   ├── resolve.ts     # del perfil al texto exacto que va en este campo
 │   ├── matcher.ts     # la cascada + recorrido del DOM y shadow DOM
 │   ├── filler.ts      # el setter nativo, selects, radios, resaltado
+│   ├── questions.ts   # preguntas abiertas guardadas, por similitud
+│   ├── cvs.ts         # el pool de CVs y cómo se adjuntan
+│   ├── apply.ts       # el botón de enviar y si conviene tocarlo
+│   ├── overlay.ts     # el panel sobre la página
 │   ├── engine.ts      # arma el informe aplicando las políticas
 │   └── storage.ts     # perfil, mappings aprendidos, export/import
 ├── entrypoints/
