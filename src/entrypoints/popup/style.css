@@ -382,7 +382,9 @@ select {
   color: var(--faint);
 }
 
-.salary-row { display: grid; grid-template-columns: 1.35fr 0.85fr 1.05fr; gap: 6px; }
+.salary-row { display: grid; grid-template-columns: 1.2fr 0.8fr 1fr 1fr; gap: 6px; }
+
+.salary-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 .hours { display: grid; gap: 4px; }
 .hours > span { font-size: 10.5px; color: var(--faint); }

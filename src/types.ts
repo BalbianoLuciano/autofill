@@ -8,6 +8,9 @@ export type Lang = 'es' | 'en';
 export type Currency = 'USD' | 'ARS' | 'EUR';
 export type Period = 'hour' | 'month' | 'year';
 
+/** Antes o despues de impuestos. En España casi todo se habla en bruto. */
+export type SalaryBasis = 'gross' | 'net';
+
 /**
  * Regiones donde la persona puede trabajar legalmente.
  *
@@ -38,6 +41,8 @@ export interface SalaryEntry {
   amount: number;
   currency: Currency;
   period: Period;
+  /** Sin declarar, sirve para cualquier pregunta. */
+  basis?: SalaryBasis;
 }
 
 /**
@@ -52,6 +57,13 @@ export interface SalaryValue {
   entries: SalaryEntry[];
   /** Para pasar de sueldo mensual a tarifa horaria. */
   hoursPerMonth: number;
+  /**
+   * En cuantos pagos se reparte el año. 12 casi en todos lados, 14 en España.
+   *
+   * No es un detalle: 30.000 € anuales son 2.500 al mes en 12 pagas y 2.142 en
+   * 14. Un 17% de diferencia en el numero que mas se mira de la aplicacion.
+   */
+  paymentsPerYear: number;
 }
 
 export interface RegionsValue {
@@ -143,6 +155,7 @@ export interface Qualifiers {
   period?: Period;
   currency?: Currency;
   region?: RegionCode;
+  basis?: SalaryBasis;
 }
 
 /** Por que un campo quedo sin completar. */
@@ -150,6 +163,7 @@ export type SkipReason =
   | 'sensitive'      // se reconocio, pero no se rellena solo
   | 'no-value'       // se reconocio, pero el perfil no tiene ese dato
   | 'no-currency'    // pide una moneda que el perfil no tiene cargada
+  | 'no-basis'       // pide bruto y solo tenes neto, o al reves
   | 'unlisted-skill' // pregunta por una tecnologia que no esta en tu perfil
   | 'no-option'      // es un select/radio y ninguna opcion se parecio al valor
   | 'needs-answer'   // pregunta abierta sin respuesta guardada: la contestas vos

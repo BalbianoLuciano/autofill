@@ -15,11 +15,11 @@ import {
 import { deleteCv, listCvs, pickCv, readCv, renameCv, saveCv } from '../../core/cvs';
 import type {
   Currency, CustomQuestion, CvMeta, CvRole, FilledField, FillReport, Lang,
-  Period, Profile, ProfileValue, RegionCode, SalaryEntry, Settings, SkillEntry,
-  SkippedField,
+  Period, Profile, ProfileValue, RegionCode, SalaryBasis, SalaryEntry, Settings,
+  SkillEntry, SkippedField,
 } from '../../types';
 import {
-  CURRENCY_LABELS, FIELD_HINTS, FIELD_LABELS, GROUPS, LANG_LABELS,
+  BASIS_LABELS, CURRENCY_LABELS, FIELD_HINTS, FIELD_LABELS, GROUPS, LANG_LABELS,
   PERIOD_LABELS, REGION_LABELS, SKIP_REASON_LABELS,
 } from './labels';
 
@@ -28,9 +28,15 @@ const ENGINE = '/autofill.js';
 
 const CURRENCIES: Currency[] = ['USD', 'ARS', 'EUR'];
 const PERIODS: Period[] = ['hour', 'month', 'year'];
+const BASES: SalaryBasis[] = ['gross', 'net'];
 const REGIONS: RegionCode[] = ['AR', 'ES', 'EU', 'US', 'UK', 'CA', 'MX', 'BR'];
-/** Cuantas monedas se pueden cargar para un mismo sueldo. */
-const SALARY_ROWS = 2;
+/**
+ * Cuantos montos se pueden cargar para un mismo sueldo.
+ *
+ * Son tres desde que existe el bruto/neto: con dos, cargar el mismo sueldo en
+ * bruto y en neto ya no dejaba lugar para una segunda moneda.
+ */
+const SALARY_ROWS = 3;
 
 interface FrameReport {
   frameId: number;
@@ -136,7 +142,7 @@ function salaryControls(key: FieldKey, value: ProfileValue | undefined): Node[] 
       type: 'text',
       inputMode: 'numeric',
       name: `${key}.${i}.amount`,
-      placeholder: i === 0 ? 'Monto' : 'Otra moneda (opcional)',
+      placeholder: i === 0 ? 'Monto' : 'Otro monto (opcional)',
     });
     amount.value = entry ? String(entry.amount) : '';
 
@@ -148,15 +154,33 @@ function salaryControls(key: FieldKey, value: ProfileValue | undefined): Node[] 
     for (const code of PERIODS) period.append(new Option(PERIOD_LABELS[code], code));
     period.value = entry?.period ?? 'month';
 
-    rows.push(el('div', { className: 'salary-row' }, amount, currency, period));
+    // El «—» no es un campo a medio llenar: asi cargado, el mismo monto
+    // contesta tanto si piden bruto como si piden neto. Aclararlo sirve para
+    // cargar los dos numeros por separado, que no se convierten entre si.
+    const basis = el('select', { name: `${key}.${i}.basis` });
+    basis.append(new Option('—', ''));
+    for (const code of BASES) basis.append(new Option(BASIS_LABELS[code], code));
+    basis.value = entry?.basis ?? '';
+
+    rows.push(el('div', { className: 'salary-row' }, amount, currency, period, basis));
   }
 
   const hours = el('input', { type: 'text', inputMode: 'numeric', name: `${key}.hours` });
   hours.value = String(current?.hoursPerMonth ?? 160);
+
+  const payments = el('input', { type: 'text', inputMode: 'numeric', name: `${key}.payments` });
+  payments.value = String(current?.paymentsPerYear ?? 12);
+
   rows.push(
-    el('label', { className: 'hours' },
-      el('span', {}, 'Horas por mes, para calcular la tarifa horaria'),
-      hours,
+    el('div', { className: 'salary-extra' },
+      el('label', { className: 'hours' },
+        el('span', {}, 'Horas por mes, para la tarifa horaria'),
+        hours,
+      ),
+      el('label', { className: 'hours' },
+        el('span', {}, 'Pagas por año (14 en España)'),
+        payments,
+      ),
     ),
   );
 
@@ -281,18 +305,22 @@ function readProfileForm(): Profile {
           // al escribir un sueldo, y guardarlo asi rompe la conversion.
           const amount = Number(str(`${key}.${i}.amount`).replace(/[.,\s]/g, ''));
           if (!Number.isFinite(amount) || amount <= 0) continue;
+          const basis = str(`${key}.${i}.basis`) as SalaryBasis | '';
           entries.push({
             amount,
             currency: (str(`${key}.${i}.currency`) || 'USD') as Currency,
             period: (str(`${key}.${i}.period`) || 'month') as Period,
+            ...(basis ? { basis } : {}),
           });
         }
         if (entries.length > 0) {
           const hours = Number(str(`${key}.hours`));
+          const payments = Number(str(`${key}.payments`));
           next[key] = {
             kind: 'salary',
             entries,
             hoursPerMonth: Number.isFinite(hours) && hours > 0 ? hours : 160,
+            paymentsPerYear: Number.isFinite(payments) && payments > 0 ? payments : 12,
           };
         }
         break;

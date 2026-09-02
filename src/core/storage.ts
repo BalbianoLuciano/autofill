@@ -14,7 +14,7 @@ import { similarity } from './normalize';
 import { upsertQuestion } from './questions';
 import type {
   Currency, CustomQuestion, FieldSignature, Mappings, Profile, ProfileValue,
-  RegionCode, SalaryEntry, Settings, Store,
+  RegionCode, SalaryBasis, SalaryEntry, Settings, Store,
 } from '../types';
 
 const KEY = 'autofill.store';
@@ -159,14 +159,22 @@ function sanitizeValue(key: FieldKey, value: ProfileValue): ProfileValue | null 
       return exists ? { kind: 'choice', code: value.code } : null;
     }
     case 'salary': {
-      const entries = (value.entries ?? []).filter(
-        (e) => Number.isFinite(e.amount) && e.amount > 0,
-      );
+      // El bruto/neto se limpia igual que todo lo demas: un JSON importado a
+      // mano puede traer cualquier cosa, y una etiqueta invalida haria que el
+      // motor descarte una entrada que en realidad sirve para las dos.
+      const entries = (value.entries ?? [])
+        .filter((e) => Number.isFinite(e.amount) && e.amount > 0)
+        .map(({ basis, ...rest }) => (
+          basis === 'gross' || basis === 'net' ? { ...rest, basis } : rest
+        ));
       if (entries.length === 0) return null;
       const hours = Number.isFinite(value.hoursPerMonth) && value.hoursPerMonth > 0
         ? value.hoursPerMonth
         : 160;
-      return { kind: 'salary', entries, hoursPerMonth: hours };
+      const pagas = Number.isFinite(value.paymentsPerYear) && value.paymentsPerYear > 0
+        ? value.paymentsPerYear
+        : 12;
+      return { kind: 'salary', entries, hoursPerMonth: hours, paymentsPerYear: pagas };
     }
     case 'regions': {
       const codes = (value.codes ?? []).filter((c) => c in REGION_WORDS);
@@ -228,7 +236,9 @@ export function migrateFromV1(old: Record<string, string> | undefined): Profile 
 
       case 'salary': {
         const entries = parseSalary(text);
-        if (entries.length > 0) profile[key] = { kind: 'salary', entries, hoursPerMonth: 160 };
+        if (entries.length > 0) {
+          profile[key] = { kind: 'salary', entries, hoursPerMonth: 160, paymentsPerYear: 12 };
+        }
         break;
       }
 
@@ -282,6 +292,9 @@ export function parseSalary(text: string): SalaryEntry[] {
     const amount = Number(found[0].replace(/[.,\s]/g, ''));
     if (!Number.isFinite(amount) || amount <= 0) continue;
 
+    const basis: SalaryBasis | undefined =
+      /bruto|gross/.test(chunk) ? 'gross' : /neto|net\b|en mano|liquido/.test(chunk) ? 'net' : undefined;
+
     let currency: Currency;
     if (/usd|u\$s|dolar|dollar/.test(chunk)) currency = 'USD';
     else if (/eur|€/.test(chunk)) currency = 'EUR';
@@ -301,7 +314,7 @@ export function parseSalary(text: string): SalaryEntry[] {
         ? 'year'
         : 'month';
 
-    entries.push({ amount, currency, period });
+    entries.push({ amount, currency, period, ...(basis ? { basis } : {}) });
   }
 
   return entries;

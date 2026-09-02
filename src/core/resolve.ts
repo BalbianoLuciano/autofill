@@ -10,7 +10,7 @@
 import { FIELD_BY_KEY, type FieldKey } from './fields';
 import { detectSkill } from './skills';
 import type {
-  Currency, Lang, Period, Profile, ProfileValue, Qualifiers, RegionCode,
+  Currency, Lang, Period, Profile, ProfileValue, Qualifiers, RegionCode, SalaryBasis,
 } from '../types';
 
 export interface ResolveContext {
@@ -58,7 +58,7 @@ export interface Resolution {
    */
   candidates: string[];
   /** Si no se pudo resolver, por que. */
-  problem?: 'no-value' | 'no-currency' | 'unlisted-skill';
+  problem?: 'no-value' | 'no-currency' | 'no-basis' | 'unlisted-skill';
 }
 
 const EMPTY: Resolution = { candidates: [], problem: 'no-value' };
@@ -152,17 +152,35 @@ function resolveChoice(key: FieldKey, code: string, ctx: ResolveContext): Resolu
 
 /* -------------------------------- salario -------------------------------- */
 
-const PER_YEAR = 12;
+/** Meses trabajados en un año. No cambia aunque el sueldo se pague en 14. */
+const MONTHS_WORKED = 12;
 
-function convert(amount: number, from: Period, to: Period, hoursPerMonth: number): number {
+/**
+ * Todo pasa por el total anual, que es la unica unidad que no depende de como
+ * se reparta el pago.
+ *
+ * `paymentsPerYear` es en cuantos pagos se divide ese total —12, o 14 en
+ * España— y por eso decide cuanto es "un sueldo mensual". Las horas, en
+ * cambio, se trabajan doce meses igual: la tarifa horaria sale del anual
+ * dividido por los meses trabajados, no por la cantidad de pagas.
+ */
+function convert(
+  amount: number,
+  from: Period,
+  to: Period,
+  hoursPerMonth: number,
+  paymentsPerYear: number,
+): number {
   if (from === to) return amount;
-  // Todo pasa por el sueldo mensual, que es la unidad intermedia.
-  const monthly =
-    from === 'month' ? amount : from === 'year' ? amount / PER_YEAR : amount * hoursPerMonth;
 
-  if (to === 'month') return monthly;
-  if (to === 'year') return monthly * PER_YEAR;
-  return monthly / hoursPerMonth;
+  const annual =
+    from === 'year' ? amount
+    : from === 'month' ? amount * paymentsPerYear
+    : amount * hoursPerMonth * MONTHS_WORKED;
+
+  if (to === 'year') return annual;
+  if (to === 'month') return annual / paymentsPerYear;
+  return annual / (hoursPerMonth * MONTHS_WORKED);
 }
 
 function format(amount: number): string {
@@ -174,6 +192,11 @@ const CURRENCY_WORD: Record<Currency, { es: string; en: string }> = {
   USD: { es: 'USD', en: 'USD' },
   ARS: { es: 'ARS', en: 'ARS' },
   EUR: { es: 'EUR', en: 'EUR' },
+};
+
+const BASIS_WORD: Record<SalaryBasis, { es: string; en: string }> = {
+  gross: { es: 'brutos', en: 'gross' },
+  net: { es: 'netos', en: 'net' },
 };
 
 const PERIOD_WORD: Record<Period, { es: string; en: string }> = {
@@ -188,19 +211,36 @@ function resolveSalary(
 ): Resolution {
   if (value.entries.length === 0) return EMPTY;
 
-  const wanted = ctx.qualifiers.currency;
+  const { currency: wantedCurrency, basis: wantedBasis } = ctx.qualifiers;
 
   // Entre monedas no se convierte: el tipo de cambio se mueve, y en Argentina
   // hay varios a la vez. Si el formulario pide una moneda que no esta cargada,
   // se dice, en vez de inventar una cifra.
-  const entry = wanted
-    ? value.entries.find((e) => e.currency === wanted)
-    : value.entries[0];
+  const byCurrency = wantedCurrency
+    ? value.entries.filter((e) => e.currency === wantedCurrency)
+    : value.entries;
 
-  if (!entry) return { candidates: [], problem: 'no-currency' };
+  if (byCurrency.length === 0) return { candidates: [], problem: 'no-currency' };
+
+  /*
+   * Entre bruto y neto tampoco se convierte, y por la misma razon: depende del
+   * pais, del tramo y de la situacion personal de cada uno. Contestar en neto
+   * lo que preguntan en bruto es equivocarse por el margen del impuesto, y en
+   * un numero que nadie vuelve a mirar despues de enviarlo.
+   *
+   * Una entrada sin bruto/neto declarado sirve para cualquier pregunta: es el
+   * caso de quien nunca hizo la distincion.
+   */
+  const entry = wantedBasis
+    ? byCurrency.find((e) => e.basis === wantedBasis || e.basis === undefined)
+    : byCurrency[0];
+
+  if (!entry) return { candidates: [], problem: 'no-basis' };
 
   const period = ctx.qualifiers.period ?? entry.period;
-  const amount = format(convert(entry.amount, entry.period, period, value.hoursPerMonth));
+  const amount = format(
+    convert(entry.amount, entry.period, period, value.hoursPerMonth, value.paymentsPerYear),
+  );
 
   // Si el input solo toma numeros, o el label ya aclara periodo y moneda, va
   // el numero pelado. Si no, se acompana para que se entienda que es.
@@ -210,7 +250,8 @@ function resolveSalary(
 
   const currency = CURRENCY_WORD[entry.currency][ctx.lang];
   const periodWord = PERIOD_WORD[period][ctx.lang];
-  return { candidates: [`${amount} ${currency} ${periodWord}`, amount] };
+  const basisWord = entry.basis ? ` ${BASIS_WORD[entry.basis][ctx.lang]}` : '';
+  return { candidates: [`${amount} ${currency}${basisWord} ${periodWord}`, amount] };
 }
 
 /* -------------------------------- regiones -------------------------------- */

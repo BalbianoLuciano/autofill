@@ -20,6 +20,7 @@ const PROFILE: Profile = {
   salaryExpectation: {
     kind: 'salary',
     hoursPerMonth: 160,
+    paymentsPerYear: 12,
     entries: [{ amount: 2500, currency: 'USD', period: 'month' }],
   },
 };

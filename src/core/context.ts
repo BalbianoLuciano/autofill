@@ -8,7 +8,7 @@
  */
 
 import { normalize } from './normalize';
-import type { Currency, Lang, Period, Qualifiers, RegionCode } from '../types';
+import type { Currency, Lang, Period, Qualifiers, RegionCode, SalaryBasis } from '../types';
 
 /* -------------------------------- idioma -------------------------------- */
 
@@ -64,6 +64,17 @@ const PERIOD_PATTERNS: [Period, RegExp][] = [
   ['year', /\b(year|yearly|annual|annually|per year|per annum|salario anual|ano|anual|anuales|por ano)\b/],
 ];
 
+/**
+ * Bruto o neto.
+ *
+ * Se mira antes que nada porque cambia el numero, no el formato: contestar en
+ * neto lo que preguntan en bruto es equivocarse por el margen del impuesto.
+ */
+const BASIS_PATTERNS: [SalaryBasis, RegExp][] = [
+  ['gross', /\b(bruto|brutos|bruta|brutas|gross|before tax|antes de impuestos|en bruto)\b/],
+  ['net', /\b(neto|netos|neta|netas|net|take home|after tax|despues de impuestos|en mano|liquido|liquidos)\b/],
+];
+
 const CURRENCY_PATTERNS: [Currency, RegExp][] = [
   ['USD', /\b(usd|dollar|dollars|dolar|dolares|dolares estadounidenses)\b/],
   ['ARS', /\b(ars|peso|pesos|argentine peso|pesos argentinos)\b/],
@@ -110,6 +121,10 @@ export function extractQualifiers(text: string): Qualifiers {
 
   for (const [region, pattern] of REGION_PATTERNS) {
     if (pattern.test(normalized)) { qualifiers.region = region; break; }
+  }
+
+  for (const [basis, pattern] of BASIS_PATTERNS) {
+    if (pattern.test(normalized)) { qualifiers.basis = basis; break; }
   }
 
   return qualifiers;

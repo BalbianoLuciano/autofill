@@ -25,8 +25,9 @@
     "salaryExpectation": {
       "kind": "salary",
       "hoursPerMonth": 160,
+      "paymentsPerYear": 12,
       "entries": [
-        { "amount": 4000, "currency": "EUR", "period": "month" },
+        { "amount": 4000, "currency": "EUR", "period": "month", "basis": "gross" },
         { "amount": 4500, "currency": "USD", "period": "month" }
       ]
     },

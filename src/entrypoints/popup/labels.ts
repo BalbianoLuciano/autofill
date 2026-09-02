@@ -1,7 +1,7 @@
 /** Nombres en castellano de cada clave, y como se agrupan en el formulario. */
 
 import type { FieldKey } from '../../core/fields';
-import type { Currency, Lang, Period, RegionCode, SkipReason } from '../../types';
+import type { Currency, Lang, Period, RegionCode, SalaryBasis, SkipReason } from '../../types';
 
 export const FIELD_LABELS: Record<FieldKey, string> = {
   firstName: 'Nombre',
@@ -49,7 +49,7 @@ export const FIELD_HINTS: Partial<Record<FieldKey, string>> = {
   fullName: 'Como lo pide un formulario: nombre y apellido juntos',
   workAuthorization: 'Se usa para contestar «¿podés trabajar en X?» por sí o por no',
   requiresSponsorship: 'Si marcaste arriba dónde podés trabajar, se deduce solo',
-  salaryExpectation: 'Se convierte sola entre hora, mes y año. Entre monedas no.',
+  salaryExpectation: 'Se convierte sola entre hora, mes y año. Entre monedas, y entre bruto y neto, no.',
   yearsExperience: 'Solo el número',
   otherLanguages: 'Aparte del inglés',
 };
@@ -107,6 +107,7 @@ export const SKIP_REASON_LABELS: Record<SkipReason, string> = {
   sensitive: 'Sensible, lo completás vos',
   'no-value': 'No hay dato en el perfil',
   'no-currency': 'Pide una moneda que no cargaste',
+  'no-basis': 'Pide bruto o neto, y solo tenés el otro',
   'unlisted-skill': 'Pregunta por una tecnología que no tenés cargada',
   'no-option': 'Ninguna opción coincidió',
   'needs-answer': 'Pregunta abierta, la contestás vos',
@@ -129,6 +130,11 @@ export const CURRENCY_LABELS: Record<Currency, string> = {
   USD: 'USD',
   ARS: 'ARS',
   EUR: 'EUR',
+};
+
+export const BASIS_LABELS: Record<SalaryBasis, string> = {
+  gross: 'bruto',
+  net: 'neto',
 };
 
 export const PERIOD_LABELS: Record<Period, string> = {
