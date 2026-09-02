@@ -7,6 +7,36 @@ y en el encabezado del popup.
 
 Todavía no está publicada en la Chrome Web Store: se instala descomprimida.
 
+## 1.7.0
+
+**Bruto o neto, y las pagas del año.**
+
+Dos formularios pueden pedir el mismo sueldo y esperar números distintos. «Salario bruto
+anual» y «neto mensual» no son el mismo dato con otro formato: entre uno y otro está el
+impuesto, y en España el anual se cobra en catorce pagas y no en doce. La extensión
+contestaba los dos casos con la misma cuenta.
+
+- **El perfil guarda si el monto es bruto o neto**, o ninguno de los dos. Sin aclarar es
+  una opción válida —el caso de quien nunca hizo la distinción— y ese monto sirve para
+  las dos preguntas.
+- **Entre bruto y neto no se convierte**, por la misma razón que no se convierte entre
+  monedas: depende del país, del tramo y de la situación personal de cada uno. Si el
+  formulario pide bruto y solo cargaste neto, se avisa en vez de estimar.
+- **Pagas por año**, 12 o 14. No es un detalle de nómina: 30.000 € anuales son 2.500 al
+  mes en 12 pagas y 2.142 en 14. Un 17% de diferencia en el número que más se mira de la
+  postulación.
+- La conversión pasa ahora por el **total anual**, que es la única unidad que no depende
+  de cómo se reparta el pago. La tarifa horaria sigue saliendo de doce meses de trabajo,
+  porque las horas se trabajan igual aunque el sueldo se cobre en catorce.
+- Se pueden cargar **tres montos** en vez de dos: el mismo sueldo en bruto y en neto ya
+  no deja sin lugar a una segunda moneda.
+
+**Arreglado**
+
+- «2300 eur en mano» se guardaba como sueldo **anual**. El período se detectaba buscando
+  `ano` dentro del texto, y `ano` está adentro de `m-ano-`: el sueldo mensual salía
+  después dividido por doce.
+
 ## 1.6.1
 
 **Guardabas el perfil y no te enterabas.**

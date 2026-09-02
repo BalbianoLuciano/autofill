@@ -64,11 +64,17 @@ palabras funcionales. Los campos enumerados (disponibilidad, nivel de inglés, m
 guardan un código y se renderizan solos en el idioma que corresponda; los de texto libre
 admiten una variante en inglés, y si falta se cae al castellano.
 
-**El salario se convierte entre períodos, nunca entre monedas.** Se guarda monto +
-moneda + período, y el label dice qué pide: *hourly rate*, *expected annual salary
-(USD)*. Pasar de mes a año es aritmética; pasar de dólares a pesos no, porque el tipo de
-cambio se mueve y en Argentina hay varios a la vez. Si el formulario pide una moneda que
-no está cargada, se avisa en vez de inventar una cifra.
+**El salario se convierte entre períodos, nunca entre monedas ni entre bruto y neto.**
+Se guarda monto + moneda + período + si es bruto o neto, y el label dice qué pide:
+*hourly rate*, *expected annual salary (USD)*, *salario neto mensual*. Pasar de mes a año
+es aritmética; pasar de dólares a pesos no, porque el tipo de cambio se mueve y en
+Argentina hay varios a la vez, y pasar de neto a bruto tampoco, porque el impuesto
+depende del país, del tramo y de la situación de cada uno. Si el formulario pide algo que
+no está cargado, se avisa en vez de inventar una cifra.
+
+La cuenta pasa por el total anual, no por el mensual, porque el mensual depende de en
+cuántas pagas se reparta el año: 30.000 € son 2.500 al mes en 12 pagas y 2.142 en 14. La
+tarifa horaria, en cambio, sale siempre de doce meses de trabajo.
 
 **El permiso de trabajo es una lista de regiones.** «¿Estás autorizado a trabajar en la
 UE?» no se contesta con una frase, se contesta con Sí o No. Guardás dónde podés trabajar
