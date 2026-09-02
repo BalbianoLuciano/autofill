@@ -293,9 +293,11 @@ export function parseSalary(text: string): SalaryEntry[] {
     if (seen.has(currency)) continue;
     seen.add(currency);
 
-    const period = /hora|hour|\/h/.test(chunk)
+    // Los limites de palabra no son decorativos: sin ellos "en mano" cae en
+    // anual, porque "ano" esta adentro de "mano".
+    const period = /\b(hora|horas|hour|hourly)\b|\/h\b/.test(chunk)
       ? 'hour'
-      : /anual|annual|ano|year/.test(chunk)
+      : /\b(anual|anuales|annual|annually|ano|anos|año|años|year|yearly)\b/.test(chunk)
         ? 'year'
         : 'month';
 

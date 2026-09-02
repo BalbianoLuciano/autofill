@@ -27,6 +27,16 @@ describe('parseSalary', () => {
   it('no inventa nada si no hay numeros', () => {
     expect(parseSalary('a convenir')).toEqual([]);
   });
+
+  it('no confunde "en mano" con anual', () => {
+    // "ano" esta adentro de "mano": sin limites de palabra el sueldo mensual
+    // se guardaba como anual y salia dividido por doce.
+    const periodos = (text: string) => parseSalary(text).map((e) => e.period);
+
+    expect(periodos('2300 eur en mano')).toEqual(['month']);
+    expect(periodos('30000 eur anuales')).toEqual(['year']);
+    expect(periodos('25 usd por hora')).toEqual(['hour']);
+  });
 });
 
 describe('parseRegions', () => {
