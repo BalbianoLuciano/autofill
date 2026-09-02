@@ -86,6 +86,91 @@ describe('salario', () => {
   it('en un input numerico va el numero pelado', () => {
     expect(first('salaryExpectation', 'Salary expectations', 'en', true)).toBe('2500');
   });
+
+  it('reparte el anual en las pagas que cobra la persona', () => {
+    // 30.000 anuales son 2.500 en 12 pagas y 2.142,86 en 14. La tarifa horaria
+    // no se mueve: las horas se trabajan doce meses igual.
+    const catorce: Profile = {
+      salaryExpectation: {
+        kind: 'salary',
+        hoursPerMonth: 160,
+        paymentsPerYear: 14,
+        entries: [{ amount: 30_000, currency: 'EUR', period: 'year' }],
+      },
+    };
+    const pide = (label: string) =>
+      resolve('salaryExpectation', catorce, {
+        lang: 'es', qualifiers: extractQualifiers(label),
+      }).candidates.at(-1);
+
+    expect(pide('Salario anual bruto (EUR)')).toBe('30000');
+    expect(pide('Salario mensual bruto (EUR)')).toBe('2142.86');
+    expect(pide('Tarifa por hora (EUR)')).toBe('15.63');
+  });
+
+  it('elige la entrada segun pidan bruto o neto', () => {
+    const ambos: Profile = {
+      salaryExpectation: {
+        kind: 'salary',
+        hoursPerMonth: 160,
+        paymentsPerYear: 12,
+        entries: [
+          { amount: 3_000, currency: 'EUR', period: 'month', basis: 'gross' },
+          { amount: 2_300, currency: 'EUR', period: 'month', basis: 'net' },
+        ],
+      },
+    };
+    const pide = (label: string, lang: 'es' | 'en' = 'es') =>
+      resolve('salaryExpectation', ambos, { lang, qualifiers: extractQualifiers(label) });
+
+    expect(pide('Sueldo mensual bruto en EUR').candidates.at(-1)).toBe('3000');
+    expect(pide('Sueldo mensual neto en EUR').candidates.at(-1)).toBe('2300');
+    expect(pide('Net monthly salary (EUR)', 'en').candidates.at(-1)).toBe('2300');
+    // Sin aclarar, contesta la primera entrada cargada.
+    expect(pide('Pretensión salarial en EUR').candidates.at(-1)).toBe('3000');
+  });
+
+  it('no convierte de neto a bruto: avisa que falta', () => {
+    // El impuesto depende del pais, del tramo y de la situacion de cada uno.
+    // Estimarlo seria errarle por plata en el numero que mas se mira.
+    const soloNeto: Profile = {
+      salaryExpectation: {
+        kind: 'salary',
+        hoursPerMonth: 160,
+        paymentsPerYear: 12,
+        entries: [{ amount: 2_300, currency: 'EUR', period: 'month', basis: 'net' }],
+      },
+    };
+    const out = resolve('salaryExpectation', soloNeto, {
+      lang: 'es',
+      qualifiers: extractQualifiers('Sueldo bruto anual en EUR'),
+    });
+    expect(out.candidates).toEqual([]);
+    expect(out.problem).toBe('no-basis');
+  });
+
+  it('una entrada sin bruto/neto declarado sirve para cualquier pregunta', () => {
+    // El caso de quien nunca hizo la distincion: mejor contestar que dejar el
+    // campo vacio por un detalle que la persona no cargo.
+    expect(first('salaryExpectation', 'Sueldo mensual bruto en ARS', 'es')).toBe('3500000');
+    expect(first('salaryExpectation', 'Sueldo mensual neto en ARS', 'es')).toBe('3500000');
+  });
+
+  it('aclara bruto o neto cuando el label no lo dice', () => {
+    const bruto: Profile = {
+      salaryExpectation: {
+        kind: 'salary',
+        hoursPerMonth: 160,
+        paymentsPerYear: 12,
+        entries: [{ amount: 3_000, currency: 'EUR', period: 'month', basis: 'gross' }],
+      },
+    };
+    const out = (lang: 'es' | 'en') =>
+      resolve('salaryExpectation', bruto, { lang, qualifiers: {} }).candidates[0];
+
+    expect(out('es')).toBe('3000 EUR brutos por mes');
+    expect(out('en')).toBe('3000 EUR gross per month');
+  });
 });
 
 describe('permiso de trabajo', () => {

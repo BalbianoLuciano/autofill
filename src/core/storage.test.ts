@@ -28,6 +28,15 @@ describe('parseSalary', () => {
     expect(parseSalary('a convenir')).toEqual([]);
   });
 
+  it('marca bruto o neto cuando el texto lo aclara', () => {
+    expect(parseSalary('3000 eur brutos')).toEqual([
+      { amount: 3000, currency: 'EUR', period: 'month', basis: 'gross' },
+    ]);
+    expect(parseSalary('2300 eur en mano')).toEqual([
+      { amount: 2300, currency: 'EUR', period: 'month', basis: 'net' },
+    ]);
+  });
+
   it('no confunde "en mano" con anual', () => {
     // "ano" esta adentro de "mano": sin limites de palabra el sueldo mensual
     // se guardaba como anual y salia dividido por doce.
@@ -36,6 +45,12 @@ describe('parseSalary', () => {
     expect(periodos('2300 eur en mano')).toEqual(['month']);
     expect(periodos('30000 eur anuales')).toEqual(['year']);
     expect(periodos('25 usd por hora')).toEqual(['hour']);
+  });
+
+  it('deja sin marcar lo que no se aclaro', () => {
+    // Sin declarar sirve para cualquier pregunta: no hay que inventarle un
+    // bruto/neto a quien nunca hizo la distincion.
+    expect(parseSalary('2500 usd').map((e) => e.basis)).toEqual([undefined]);
   });
 });
 
