@@ -54,14 +54,30 @@ export async function saveCv(
   return meta;
 }
 
+/** Lo que se puede corregir de un CV ya cargado. El archivo nunca se toca. */
+export type CvPatch = Partial<Pick<CvMeta, 'filename' | 'label' | 'lang' | 'role'>>;
+
 /**
-  * Cambia el nombre con el que se sube. No toca el archivo: solo el nombre que
-  * viaja con el, que es lo unico que ve el otro lado.
-  */
-export async function renameCv(id: string, filename: string): Promise<CvMeta[]> {
-  const metas = (await listCvs()).map((m) =>
-    m.id === id ? { ...m, filename: cleanFilename(filename, m.filename) } : m,
-  );
+ * Corrige los metadatos de un CV ya cargado, sin volver a subirlo.
+ *
+ * Existe porque `pickCv` puntua por `lang` y por `role`: si cuatro CVs quedan
+ * marcados con el mismo par, el selector no puede distinguirlos y siempre
+ * elige el mismo. Equivocarse al cargar es facil, y borrar y volver a subir
+ * para arreglar una etiqueta es una penitencia sin sentido.
+ */
+export async function updateCv(id: string, patch: CvPatch): Promise<CvMeta[]> {
+  const metas = (await listCvs()).map((m) => {
+    if (m.id !== id) return m;
+    return {
+      ...m,
+      ...patch,
+      // El filename pasa por el saneador aunque venga del patch: es el unico
+      // campo que sale de la extension y viaja a un formulario ajeno.
+      filename: patch.filename === undefined
+        ? m.filename
+        : cleanFilename(patch.filename, m.filename),
+    };
+  });
   await browser.storage.local.set({ [META_KEY]: metas });
   return metas;
 }

@@ -1,7 +1,7 @@
 /** Nombres en castellano de cada clave, y como se agrupan en el formulario. */
 
 import type { FieldKey } from '../../core/fields';
-import type { Currency, Lang, Period, RegionCode, SalaryBasis, SkipReason } from '../../types';
+import type { Currency, Lang, Period, RegionCode, SalaryBasis, SkipReason, ControlKind } from '../../types';
 
 export const FIELD_LABELS: Record<FieldKey, string> = {
   firstName: 'Nombre',
@@ -147,4 +147,12 @@ export const LANG_LABELS: Record<Lang | 'auto', string> = {
   auto: 'Detectar de la página',
   es: 'Siempre español',
   en: 'Siempre inglés',
+};
+
+/** Como se nombra cada tipo de control en la lista de obligatorios. */
+export const CONTROL_LABELS: Record<ControlKind, string> = {
+  text: 'campo de texto',
+  select: 'lista desplegable',
+  radio: 'opción única',
+  checkbox: 'casilla',
 };

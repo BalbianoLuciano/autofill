@@ -10,6 +10,7 @@
 import { FIELD_BY_KEY, type FieldKey } from './fields';
 import { detectFields, type DetectedField } from './matcher';
 import { clearHighlights, fill, highlight, isNumericInput, scrollToFirst } from './filler';
+import { findUnanswered } from './audit';
 import { detectLanguage, extractQualifiers } from './context';
 import { resolve } from './resolve';
 import { findAnswer, looksLikeOpenQuestion, optionsOf } from './questions';
@@ -69,9 +70,13 @@ export function runFill(options: RunOptions): FillReport {
   const cvAttached = options.settings.attachCv ? attachCvTo(document, options.cv) : undefined;
   const apply = orchestrateApply(options, touched, pending, lang);
 
+  // Despues de rellenar, no antes: lo que importa es lo que quedo vacio
+  // cuando el relleno ya hizo todo lo que podia.
+  const unanswered = findUnanswered(document);
+
   if (pending.length === 0) scrollToFirst(sensitive);
 
-  return { hostname: location.hostname, lang, filled, skipped, cvAttached, apply };
+  return { hostname: location.hostname, lang, filled, skipped, cvAttached, unanswered, apply };
 }
 
 /* --------------------------------- campos --------------------------------- */

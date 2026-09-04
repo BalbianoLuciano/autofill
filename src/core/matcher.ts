@@ -20,10 +20,21 @@ export type Fillable = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElemen
 // `file` queda afuera de aca porque lo maneja el modulo de CVs, que necesita
 // construir un FileList en vez de escribir texto. `range` si entra: un salario
 // puede venir como slider, y antes se salteaba en silencio.
+//
+// `checkbox` tambien entra: muchos formularios preguntan "¿estas autorizado a
+// trabajar?" con un checkbox suelto en vez de un par de radios, y un grupo de
+// checkboxes es una pregunta de opcion multiple como cualquier otra.
+// `search` tampoco: Ant Design y rc-select montan sus comboboxes sobre un
+// `type="search"`, asi que el campo de pais o ciudad de medio internet caia
+// en esta lista y nunca se tocaba.
 const IGNORED_INPUT_TYPES = new Set([
-  'hidden', 'submit', 'button', 'reset', 'image', 'file', 'password', 'checkbox',
-  'search', 'color',
+  'hidden', 'submit', 'button', 'reset', 'image', 'file', 'password', 'color',
 ]);
+
+/** Radios y checkboxes: varios inputs, una sola pregunta. */
+export function isChoiceGroup(el: Fillable): el is HTMLInputElement {
+  return el instanceof HTMLInputElement && (el.type === 'radio' || el.type === 'checkbox');
+}
 
 export interface DetectedField {
   el: Fillable;
@@ -256,27 +267,33 @@ export function detectFields(
   { learned }: DetectOptions,
 ): DetectedField[] {
   const elements = collectFillables(root);
-  const seenRadioGroups = new Map<string, HTMLInputElement[]>();
+  const seenGroups = new Map<string, HTMLInputElement[]>();
   const detected: DetectedField[] = [];
 
   for (const el of elements) {
-    if (el instanceof HTMLInputElement && el.type === 'radio') {
+    if (isChoiceGroup(el)) {
+      // Un checkbox suelto no tiene con quien agruparse y sigue siendo una
+      // pregunta valida ("acepto los terminos"), asi que cae por su id.
       const groupName = el.name || el.id;
-      if (!groupName) continue;
-      const existing = seenRadioGroups.get(groupName);
+      if (!groupName) {
+        detected.push(describe(el, learned));
+        continue;
+      }
+      const existing = seenGroups.get(groupName);
       if (existing) {
         existing.push(el);
         continue;
       }
-      seenRadioGroups.set(groupName, [el]);
+      seenGroups.set(groupName, [el]);
     }
     detected.push(describe(el, learned));
   }
 
-  // Los radios se describen con el texto del fieldset, no el de cada opcion.
+  // El grupo se describe con el texto del fieldset, no el de cada opcion.
   for (const field of detected) {
-    if (field.el instanceof HTMLInputElement && field.el.type === 'radio') {
-      field.group = seenRadioGroups.get(field.el.name || field.el.id) ?? [field.el];
+    if (isChoiceGroup(field.el)) {
+      const groupName = field.el.name || field.el.id;
+      field.group = seenGroups.get(groupName) ?? [field.el];
     }
   }
 
@@ -284,9 +301,8 @@ export function detectFields(
 }
 
 function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): DetectedField {
-  const isRadio = el instanceof HTMLInputElement && el.type === 'radio';
-  // Para un radio el label propio dice "Si"/"No"; la pregunta esta mas arriba.
-  const ownLabel = isRadio ? groupQuestion(el) || labelFor(el) : labelFor(el);
+  // Para una opcion el label propio dice "Si"/"No"; la pregunta esta mas arriba.
+  const ownLabel = isChoiceGroup(el) ? groupQuestion(el) || labelFor(el) : labelFor(el);
 
   // El texto cercano clona ancestros, asi que se calcula una sola vez y solo
   // si hace falta. Es el paso 5 de la cascada y no tiene que colarse en el 3:
@@ -294,7 +310,12 @@ function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): Dete
   let nearbyCache: string | null = null;
   const nearby = (): string => (nearbyCache ??= nearbyText(el));
 
-  const label = ownLabel || nearby();
+  // El placeholder va antes que el texto cercano a proposito. Formularios como
+  // el de kake.co no traen label ni name ni id: el unico texto alrededor del
+  // input es "Field is required", el mensaje de validacion. Tomarlo como
+  // etiqueta ensucia la firma —que es con lo que se recuerda un mapeo— y en el
+  // popup muestra "Field is required" como si fuera el nombre del campo.
+  const label = ownLabel || placeholderLabel(el) || nearby();
   const signature = signatureOf(el, label);
 
   /*
@@ -305,7 +326,7 @@ function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): Dete
    * empresa invento. Ahi se exige un alias de varias palabras o una
    * coincidencia exacta, y si no la hay se trata como pregunta propia.
    */
-  const minScore = isRadio && /[?¿]/.test(ownLabel) ? 600 : 0;
+  const minScore = isChoiceGroup(el) && /[?¿]/.test(ownLabel) ? 600 : 0;
 
   // 1. lo aprendido gana siempre
   const learnedKey = learned[signature];
@@ -345,6 +366,12 @@ function describe(el: Fillable, learned: Record<FieldSignature, FieldKey>): Dete
   }
 
   return { el, signature, label, key: null, via: null };
+}
+
+/** Lo que el propio control dice de si mismo cuando no hay label. */
+function placeholderLabel(el: Fillable): string {
+  const texto = el.getAttribute('placeholder') ?? el.getAttribute('aria-label') ?? '';
+  return clean(texto);
 }
 
 function fromAutocomplete(el: Fillable): FieldKey | null {

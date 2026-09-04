@@ -12,6 +12,8 @@
 import { browser } from 'wxt/browser';
 import { applyAnswer, applyLearned, runFill } from '../core/engine';
 import type { Message } from '../types';
+import { detectLanguage } from '../core/context';
+import { readJobTitle } from '../core/context';
 
 const READY_FLAG = '__autofillEngineReady';
 
@@ -27,7 +29,12 @@ export default defineUnlistedScript(() => {
 
     switch (message.type) {
       case 'AUTOFILL_PING':
-        sendResponse({ ready: true, hostname: location.hostname });
+        sendResponse({
+          ready: true,
+          hostname: location.hostname,
+          lang: detectLanguage(document, 'auto'),
+          jobTitle: readJobTitle(document),
+        });
         return;
 
       case 'AUTOFILL_RUN':

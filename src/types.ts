@@ -1,3 +1,7 @@
+import type { Unanswered } from './core/audit';
+
+export type { Unanswered, ControlKind } from './core/audit';
+
 import type { FieldKey } from './core/fields';
 
 export type { FieldKey };
@@ -221,6 +225,12 @@ export interface FillReport {
   skipped: SkippedField[];
   /** Si se adjunto el CV, y cual. */
   cvAttached?: string;
+  /**
+   * Obligatorios que quedaron en blanco despues de rellenar. Un radio sin
+   * marcar no se ve vacio, asi que sin esta lista se descubre despues del
+   * submit.
+   */
+  unanswered: Unanswered[];
   apply: ApplyOutcome;
 }
 

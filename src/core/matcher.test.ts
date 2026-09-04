@@ -175,15 +175,39 @@ describe('detectFields', () => {
     expect(fields[0]?.group).toHaveLength(2);
   });
 
-  it('descarta lo que no se rellena: file, password, hidden, checkbox', () => {
+  it('descarta lo que no se rellena: file, password, hidden', () => {
     const fields = detect(`
       <input type="file" name="resume">
       <input type="password" name="password">
       <input type="hidden" name="token">
-      <input type="checkbox" name="consent">
       <input type="text" name="email">
     `);
     expect(fields.map((f) => f.el.getAttribute('name'))).toEqual(['email']);
+  });
+
+  // Muchos formularios preguntan con un checkbox suelto en vez de dos radios,
+  // y antes se salteaban en silencio.
+  it('recolecta los checkbox', () => {
+    const fields = detect(`
+      <label for="c">Acepto los términos</label>
+      <input id="c" type="checkbox" name="consent">
+    `);
+    expect(fields).toHaveLength(1);
+    expect(fields[0]?.label).toContain('Acepto');
+  });
+
+  it('agrupa un grupo de checkbox en una sola pregunta', () => {
+    const fields = detect(`
+      <fieldset>
+        <legend>¿En qué regiones podés trabajar?</legend>
+        <label><input type="checkbox" name="regions" value="ES"> España</label>
+        <label><input type="checkbox" name="regions" value="AR"> Argentina</label>
+        <label><input type="checkbox" name="regions" value="US"> Estados Unidos</label>
+      </fieldset>
+    `);
+    expect(fields).toHaveLength(1);
+    expect(fields[0]?.group).toHaveLength(3);
+    expect(fields[0]?.label).toContain('regiones');
   });
 
   it('la firma es estable y prefiere name sobre id', () => {

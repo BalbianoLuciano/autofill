@@ -93,6 +93,57 @@ export function setRadioValue(
   return { ok: true };
 }
 
+/** Palabras que en un checkbox suelto significan "marcalo" o "dejalo vacio". */
+const AFIRMA = ['si', 'yes', 'true', 'ja', 'oui', 'sim', 'acepto', 'agree', 'accept'];
+const NIEGA = ['no', 'false', 'nein', 'non', 'nao'];
+
+/**
+ * Un grupo de checkboxes.
+ *
+ * Se separa de los radios por una razon concreta: un radio no se puede
+ * desmarcar clickeandolo, asi que volver a clickearlo es inocuo. Un checkbox
+ * si, y escribir `checked = true` y despues despachar un `click` lo deja
+ * apagado. Por eso se compara contra el estado actual y se usa `.click()`
+ * nativo, que dispara la cadena entera de eventos como si fuera una persona.
+ */
+export function setCheckboxValue(
+  group: HTMLInputElement[],
+  candidates: string[],
+): { ok: true } | { ok: false; options: string[] } {
+  const labelled = group.map((input) => ({ input, text: radioLabel(input) }));
+
+  // Un checkbox solo es una pregunta de si o no: no hay opcion que elegir,
+  // hay un estado que decidir.
+  if (group.length === 1) {
+    const solo = group[0]!;
+    const dicho = candidates.map((c) => c.trim().toLowerCase());
+    const quiere = dicho.some((c) => AFIRMA.includes(c))
+      ? true
+      : dicho.some((c) => NIEGA.includes(c))
+        ? false
+        : null;
+
+    if (quiere === null) return { ok: false, options: [labelled[0]!.text] };
+    if (solo.checked !== quiere) solo.click();
+    return { ok: true };
+  }
+
+  let best: { input: HTMLInputElement; score: number } | null = null;
+  for (const { input, text } of labelled) {
+    for (const value of candidates) {
+      const score = Math.max(similarity(text, value), similarity(input.value, value));
+      if (best === null || score > best.score) best = { input, score };
+    }
+  }
+
+  if (!best || best.score < 0.72) {
+    return { ok: false, options: labelled.map((l) => l.text) };
+  }
+
+  if (!best.input.checked) best.input.click();
+  return { ok: true };
+}
+
 function radioLabel(input: HTMLInputElement): string {
   const own = input.labels?.[0]?.textContent ?? input.getAttribute('aria-label') ?? '';
   return own.trim() || input.value;
@@ -132,6 +183,9 @@ export function fill(
   if (candidates.length === 0) return { ok: false, options: [] };
   if (el instanceof HTMLSelectElement) return setSelectValue(el, candidates);
   if (el instanceof HTMLInputElement && el.type === 'range') return setRangeValue(el, candidates);
+  if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+    return setCheckboxValue(group && group.length > 0 ? group : [el], candidates);
+  }
   if (group && group.length > 0) return setRadioValue(group, candidates);
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     // En un input de texto va el primer candidato: los demas existen para

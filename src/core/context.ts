@@ -55,6 +55,28 @@ export function guessLanguage(text: string): Lang {
   return score(ES_STOPWORDS) > score(EN_STOPWORDS) ? 'es' : 'en';
 }
 
+/* -------------------------------- el puesto -------------------------------- */
+
+/**
+ * El nombre del puesto, para elegir entre el CV de IA y el de liderazgo.
+ *
+ * `document.title` no alcanza: en BambooHR dice "BambooHR" y en el ATS de
+ * Easy Peasy dice "Easy Peasy ATS". El puesto esta en el `og:title` o en el
+ * primer encabezado, y solo si no hay ninguno se cae al titulo de la pestana.
+ */
+export function readJobTitle(doc: Document): string {
+  const og = doc.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.content?.trim();
+  if (og) return og;
+
+  for (const selector of ['h1', 'h2', '[class*="job-title"]', '[class*="position"]']) {
+    const texto = doc.querySelector(selector)?.textContent?.trim();
+    // Un encabezado largo es la descripcion del puesto, no su nombre.
+    if (texto && texto.length <= 90) return texto;
+  }
+
+  return doc.title ?? '';
+}
+
 /* ------------------------------ calificadores ------------------------------ */
 
 const PERIOD_PATTERNS: [Period, RegExp][] = [

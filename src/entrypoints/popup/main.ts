@@ -12,15 +12,15 @@ import {
   clearAll, deleteQuestion, exportJson, forgetMapping, getMappings, getStore,
   importJson, learnMapping, saveProfile, saveSettings,
 } from '../../core/storage';
-import { deleteCv, listCvs, pickCv, readCv, renameCv, saveCv } from '../../core/cvs';
+import { deleteCv, listCvs, pickCv, readCv, saveCv, updateCv } from '../../core/cvs';
 import type {
   Currency, CustomQuestion, CvMeta, CvRole, FilledField, FillReport, Lang,
   Period, Profile, ProfileValue, RegionCode, SalaryBasis, SalaryEntry, Settings,
   SkillEntry, SkippedField,
 } from '../../types';
 import {
-  BASIS_LABELS, CURRENCY_LABELS, FIELD_HINTS, FIELD_LABELS, GROUPS, LANG_LABELS,
-  PERIOD_LABELS, REGION_LABELS, SKIP_REASON_LABELS,
+  BASIS_LABELS, CONTROL_LABELS, CURRENCY_LABELS, FIELD_HINTS, FIELD_LABELS,
+  GROUPS, LANG_LABELS, PERIOD_LABELS, REGION_LABELS, SKIP_REASON_LABELS,
 } from './labels';
 
 /** El motor compilado. WXT lo publica en la raiz del paquete. */
@@ -504,37 +504,30 @@ function renderCvs(): void {
 
   list.replaceChildren(
     ...cvs.map((cv) => {
+      const guardar = async (patch: Parameters<typeof updateCv>[1]) => {
+        cvs = await updateCv(cv.id, patch);
+        renderCvs();
+      };
+
       const body = el('div', { className: 'cv-body' },
-        el('span', { className: 'label' }, cv.label || cv.filename),
-        el('span', { className: 'meta' },
-          `${cv.lang.toUpperCase()} · ${roleLabel(cv.role)} · ${Math.round(cv.size / 1024)} kB`),
+        editable(cv.label || cv.filename, 'label', 'Cómo lo llamás vos, solo en esta lista.',
+          (valor) => guardar({ label: valor })),
+        el('div', { className: 'meta cv-tags' },
+          selector(cv.lang, { es: 'ES', en: 'EN' }, 'Idioma del CV',
+            (valor) => guardar({ lang: valor as Lang })),
+          selector(cv.role, { ai: 'AI Engineer', lead: 'Team Leader', any: 'Cualquiera' },
+            'Perfil al que apunta', (valor) => guardar({ role: valor as CvRole })),
+          el('span', { className: 'cv-size' }, `${Math.round(cv.size / 1024)} kB`),
+        ),
       );
 
       // El nombre con el que se sube es lo unico de esta tarjeta que ve otra
       // persona, asi que se muestra aparte y se puede corregir en el momento.
-      const filename = el('button', {
-        className: 'filename',
-        title: 'Renombrar. Es el nombre que ve quien abre tu aplicación.',
-        textContent: cv.filename,
-      });
-
-      filename.addEventListener('click', () => {
-        const input = el('input', { type: 'text', className: 'rename', value: cv.filename });
-        const commit = async () => {
-          cvs = await renameCv(cv.id, input.value);
-          renderCvs();
-        };
-        input.addEventListener('blur', () => void commit());
-        input.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter') input.blur();
-          if (event.key === 'Escape') renderCvs();
-        });
-        filename.replaceWith(input);
-        input.focus();
-        input.select();
-      });
-
-      body.append(filename);
+      body.append(
+        editable(cv.filename, 'filename',
+          'Renombrar. Es el nombre que ve quien abre tu aplicación.',
+          (valor) => guardar({ filename: valor })),
+      );
 
       const li = el('li', {}, body);
       if (chosenCv?.id === cv.id) li.dataset.picked = 'true';
@@ -552,8 +545,64 @@ function renderCvs(): void {
   );
 }
 
-const roleLabel = (role: CvRole) =>
-  role === 'ai' ? 'AI Engineer' : role === 'lead' ? 'Team Leader' : 'Cualquiera';
+/**
+ * Texto que se vuelve input al hacerle click. Enter confirma, Escape descarta.
+ *
+ * Se usa para el label y para el filename: los dos son texto libre y se
+ * corrigen de a uno, asi que no hace falta un modo edicion para toda la ficha.
+ */
+function editable(
+  valor: string,
+  clase: string,
+  ayuda: string,
+  onCommit: (valor: string) => void | Promise<void>,
+): HTMLButtonElement {
+  const boton = el('button', { className: clase, title: ayuda, textContent: valor });
+
+  boton.addEventListener('click', () => {
+    const input = el('input', { type: 'text', className: 'rename', value: valor });
+    let cancelado = false;
+
+    const confirmar = () => {
+      if (cancelado) return;
+      const limpio = input.value.trim();
+      // Vaciar el campo no es una forma de borrar: se vuelve al valor anterior.
+      if (limpio && limpio !== valor) void onCommit(limpio);
+      else renderCvs();
+    };
+
+    input.addEventListener('blur', confirmar);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') input.blur();
+      if (event.key === 'Escape') { cancelado = true; renderCvs(); }
+    });
+
+    boton.replaceWith(input);
+    input.focus();
+    input.select();
+  });
+
+  return boton;
+}
+
+/** Select compacto para los campos que son una lista cerrada. */
+function selector(
+  actual: string,
+  opciones: Record<string, string>,
+  ayuda: string,
+  onChange: (valor: string) => void | Promise<void>,
+): HTMLSelectElement {
+  const select = el('select', { className: 'cv-tag', title: ayuda });
+
+  for (const [valor, texto] of Object.entries(opciones)) {
+    const option = el('option', { value: valor, textContent: texto });
+    if (valor === actual) option.selected = true;
+    select.append(option);
+  }
+
+  select.addEventListener('change', () => void onChange(select.value));
+  return select;
+}
 
 /**
  * La zona de arrastre.
@@ -687,6 +736,13 @@ runButton.addEventListener('click', async () => {
   }
 });
 
+interface PingReply {
+  ready?: boolean;
+  hostname?: string;
+  lang?: Lang;
+  jobTitle?: string;
+}
+
 async function runOnActiveTab(): Promise<FrameReport[]> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('No hay una pestaña activa.');
@@ -703,20 +759,40 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
   settings = store.settings;
   questions = store.questions;
 
-  // El CV se elige una vez por corrida: idioma del formulario y puesto de la
-  // pagina. El titulo de la pestana es la mejor pista del puesto que hay.
+  // Se pregunta primero y se rellena despues, porque para elegir el CV hacen
+  // falta dos cosas que solo sabe la pagina: en que idioma esta y que puesto
+  // es. Antes se asumia ingles y se usaba el titulo de la pestana, que en
+  // BambooHR dice "BambooHR" y en el ATS de Easy Peasy dice "Easy Peasy ATS".
+  const pings = await Promise.all(
+    injections.map(async ({ frameId }) => {
+      try {
+        const ping = await browser.tabs.sendMessage(tab.id!, { type: 'AUTOFILL_PING' }, { frameId });
+        return { frameId, ...(ping as PingReply) };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  // El hostname deja de ser opcional aca: es lo que decide que un frame cuenta.
+  type FrameVivo = { frameId: number; hostname: string } & Omit<PingReply, 'hostname'>;
+  const vivos = pings.filter((p): p is FrameVivo => Boolean(p?.hostname));
+  // El frame con el puesto es el de arriba; el formulario puede estar en otro.
+  const principal = vivos.find((p) => p.frameId === 0) ?? vivos[0];
+
   cvs = await listCvs();
   chosenCv = store.settings.attachCv
-    ? pickCv(cvs, store.settings.language === 'auto' ? 'en' : store.settings.language, tab.title ?? '')
+    ? pickCv(
+        cvs,
+        store.settings.language === 'auto' ? principal?.lang ?? 'en' : store.settings.language,
+        principal?.jobTitle || tab.title || '',
+      )
     : null;
   const cv = chosenCv ? await readCv(chosenCv.id) : null;
 
   const reports = await Promise.all(
-    injections.map(async ({ frameId }): Promise<FrameReport | null> => {
+    vivos.map(async ({ frameId, hostname }): Promise<FrameReport | null> => {
       try {
-        const ping = await browser.tabs.sendMessage(tab.id!, { type: 'AUTOFILL_PING' }, { frameId });
-        const hostname = (ping as { hostname?: string } | undefined)?.hostname;
-        if (!hostname) return null;
 
         const report = (await browser.tabs.sendMessage(
           tab.id!,
@@ -778,6 +854,21 @@ function renderReports(frames: FrameReport[]): void {
     resultBox.append(el('p', { className: 'apply-line' }, `CV adjuntado: ${top.cvAttached}`));
   }
   resultBox.append(applyLine(top.apply));
+
+  // Va primero porque es lo unico que impide mandar el formulario. Un radio
+  // obligatorio sin marcar no se ve vacio: sin esta lista se descubre despues
+  // de apretar enviar.
+  const faltantes = frames.flatMap((f) => f.report.unanswered ?? []);
+  if (faltantes.length > 0) {
+    resultBox.append(section('warn', `Obligatorios sin completar (${faltantes.length})`,
+      faltantes.map((u) => item(
+        u.label || 'Campo sin etiqueta',
+        u.options.length > 0
+          ? `${CONTROL_LABELS[u.kind]} · ${u.options.slice(0, 6).join(' · ')}`
+          : CONTROL_LABELS[u.kind],
+      )),
+    ));
+  }
 
   if (filled.length > 0) {
     resultBox.append(section('ok', 'Completados', filled.map(filledItem)));

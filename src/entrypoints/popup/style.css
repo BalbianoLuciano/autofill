@@ -721,6 +721,46 @@ input.rename {
 
 button.filename:hover { border-color: var(--accent); color: var(--text); }
 
+/* El label es editable igual que el filename, pero manda en la tarjeta. */
+button.label {
+  justify-self: start;
+  max-width: 100%;
+  padding: 1px 5px;
+  margin-left: -5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+button.label:hover { border-color: var(--border-soft); background: var(--surface-2); }
+
+/* Idioma y perfil: se cambian sin borrar y volver a subir el archivo, porque
+   son los dos campos con los que `pickCv` decide cual mandar. */
+.cv-tags { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
+select.cv-tag {
+  padding: 1px 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+select.cv-tag:hover { border-color: var(--accent); color: var(--text); }
+select.cv-tag:focus { outline: none; border-color: var(--accent); }
+
+.cv-size { color: var(--text-3, var(--text-2)); font-size: 10.5px; }
+
 input.rename { width: 100%; cursor: text; }
 input.rename:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 
