@@ -12,8 +12,8 @@
 import { browser } from 'wxt/browser';
 import { applyAnswer, applyLearned, runFill } from '../core/engine';
 import type { Message } from '../types';
-import { detectLanguage } from '../core/context';
-import { readJobTitle } from '../core/context';
+import { detectLanguage, readJobTitle } from '../core/context';
+import { collectFillables } from '../core/matcher';
 
 const READY_FLAG = '__autofillEngineReady';
 
@@ -34,6 +34,11 @@ export default defineUnlistedScript(() => {
           hostname: location.hostname,
           lang: detectLanguage(document, 'auto'),
           jobTitle: readJobTitle(document),
+          // Cuantos campos ve este frame y que iframes tiene adentro. Con eso
+          // el popup distingue «esta pagina no tiene formulario» de «el
+          // formulario esta en un iframe al que no llegamos».
+          controls: collectFillables(document).length,
+          frames: nestedFrames(document),
         });
         return;
 
@@ -61,3 +66,16 @@ export default defineUnlistedScript(() => {
     }
   });
 });
+
+/**
+ * Los iframes de este documento, por su URL.
+ *
+ * Se lee desde el frame que los contiene porque es el unico que los ve: si el
+ * iframe es de otro origen, la extension no puede entrar hasta que se le de
+ * permiso, y para pedirlo hace falta saber que existe.
+ */
+function nestedFrames(doc: Document): string[] {
+  return Array.from(doc.querySelectorAll('iframe'))
+    .map((frame) => frame.src)
+    .filter(Boolean);
+}

@@ -33,8 +33,18 @@ en el manifest; el popup lo inyecta con `scripting.executeScript` en el momento 
 rellenar. Estés donde estés, funciona; y la extensión no puede leer ninguna pestaña
 que no hayas abierto vos con el botón.
 
-Se inyecta en todos los frames, porque los ATS embebidos (Greenhouse dentro de la web
-de la empresa es el caso típico) viven en un iframe.
+### El límite de `activeTab`, y los formularios incrustados
+
+`activeTab` concede el origen del **frame principal**, y nada más. Los ATS embebidos
+—Greenhouse dentro de la web de la empresa, o un bloque HTML de Wix, que se sirve desde
+otro dominio— viven en un iframe ajeno, y ahí el motor no entra: la página se lee entera
+y no hay un solo campo que tocar.
+
+Por eso el manifest declara además `optional_host_permissions`. No se pide nada al
+instalar. Cuando el panel detecta que el formulario está en un iframe de otro dominio
+—se lo pregunta al frame que lo contiene, que sí lo ve— ofrece un botón para concederle
+permiso **a ese dominio**, una vez. Queda guardado para la próxima y se revoca desde
+`chrome://extensions` como cualquier otro.
 
 ### La cascada
 

@@ -13,6 +13,7 @@ import {
   importJson, learnMapping, saveProfile, saveSettings,
 } from '../../core/storage';
 import { deleteCv, listCvs, pickCv, readCv, saveCv, updateCv } from '../../core/cvs';
+import { crossOriginFrames, type FrameView } from '../../core/frames';
 import type {
   Currency, CustomQuestion, CvMeta, CvRole, FilledField, FillReport, Lang,
   Period, Profile, ProfileValue, RegionCode, SalaryBasis, SalaryEntry, Settings,
@@ -741,7 +742,19 @@ interface PingReply {
   hostname?: string;
   lang?: Lang;
   jobTitle?: string;
+  /** Campos que ese frame ve. Cero, y con iframes, huele a formulario incrustado. */
+  controls?: number;
+  /** Las URLs de los iframes que tiene adentro. */
+  frames?: string[];
 }
+
+/**
+ * Origenes con un formulario adentro a los que todavia no llegamos.
+ *
+ * Se guarda entre el ping y el render porque el permiso se pide desde un
+ * boton: Chrome solo acepta `permissions.request` en respuesta a un click.
+ */
+let pendingOrigins: string[] = [];
 
 async function runOnActiveTab(): Promise<FrameReport[]> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -749,6 +762,11 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
 
   // allFrames porque casi todos los ATS embebidos viven en un iframe: el
   // formulario de Greenhouse dentro de la web de la empresa es el caso tipico.
+  //
+  // Ojo: esto solo alcanza los frames a los que la extension tiene acceso, y
+  // `activeTab` concede el origen del frame principal nada mas. Un iframe de
+  // otro origen queda afuera hasta que se le da permiso desde el panel; de eso
+  // se ocupa `unreachableOrigins`.
   const injections = await browser.scripting.executeScript({
     target: { tabId: tab.id, allFrames: true },
     files: [ENGINE],
@@ -779,6 +797,8 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
   const vivos = pings.filter((p): p is FrameVivo => Boolean(p?.hostname));
   // El frame con el puesto es el de arriba; el formulario puede estar en otro.
   const principal = vivos.find((p) => p.frameId === 0) ?? vivos[0];
+
+  pendingOrigins = await unreachableOrigins(vivos);
 
   cvs = await listCvs();
   chosenCv = store.settings.attachCv
@@ -819,6 +839,21 @@ async function runOnActiveTab(): Promise<FrameReport[]> {
   return reports.filter((r): r is FrameReport => r !== null);
 }
 
+/**
+ * Los origenes que hay que pedir para poder tocar el formulario.
+ *
+ * `crossOriginFrames` dice cuales quedaron fuera de alcance; aca se filtran
+ * los que ya tienen permiso concedido de antes, que no hay que volver a pedir.
+ */
+async function unreachableOrigins(views: FrameView[]): Promise<string[]> {
+  const faltantes: string[] = [];
+  for (const origin of crossOriginFrames(views)) {
+    const concedido = await browser.permissions.contains({ origins: [`${origin}/*`] });
+    if (!concedido) faltantes.push(origin);
+  }
+  return faltantes;
+}
+
 /* -------------------------------- resultado -------------------------------- */
 
 type LocatedFill = FilledField & { hostname: string };
@@ -832,6 +867,10 @@ function renderReports(frames: FrameReport[]): void {
     );
     return;
   }
+
+  // Va antes que el resumen: si el formulario esta en un iframe ajeno, el
+  // «0 campos completados» no es un diagnostico, es una consecuencia.
+  if (pendingOrigins.length > 0) resultBox.append(permissionBlock());
 
   const filled = frames.flatMap((f) =>
     f.report.filled.map((item) => ({ ...item, hostname: f.report.hostname })),
@@ -923,6 +962,52 @@ function renderReports(frames: FrameReport[]): void {
 }
 
 /** El estado del envio automatico, en una linea. */
+/**
+ * El pedido de permiso para un formulario incrustado.
+ *
+ * Chrome solo acepta `permissions.request` dentro de un click, y ademas puede
+ * cerrar el panel al abrir su propio dialogo. Por eso el boton reintenta solo
+ * si sobrevive, y el texto avisa que si el panel se cierra alcanza con volver
+ * a abrirlo.
+ */
+function permissionBlock(): HTMLElement {
+  const box = el('div', { className: 'permission' });
+  const nombres = pendingOrigins.map((origin) => new URL(origin).hostname);
+
+  box.append(
+    el('p', { className: 'permission-title' }, 'El formulario está incrustado'),
+    el('p', { className: 'permission-body' },
+      'Vive en ',
+      el('strong', {}, nombres.join(', ')),
+      ', que es otro dominio. Chrome no deja tocarlo hasta que le des permiso a ese dominio.'),
+  );
+
+  const grant = el('button', { className: 'permission-grant', textContent: 'Dar permiso y rellenar' });
+  grant.addEventListener('click', async () => {
+    grant.disabled = true;
+    grant.textContent = 'Pidiendo…';
+    try {
+      const concedido = await browser.permissions.request({
+        origins: pendingOrigins.map((origin) => `${origin}/*`),
+      });
+      if (!concedido) {
+        grant.disabled = false;
+        grant.textContent = 'Dar permiso y rellenar';
+        return;
+      }
+      resultBox.replaceChildren();
+      renderReports(await runOnActiveTab());
+    } catch (error) {
+      resultBox.replaceChildren();
+      renderError(error);
+    }
+  });
+
+  box.append(grant, el('p', { className: 'permission-note' },
+    'Si el panel se cierra al aceptar, volvé a abrirlo y apretá Rellenar.'));
+  return box;
+}
+
 function applyLine(outcome: FillReport['apply']): HTMLElement {
   const line = el('p', { className: 'apply-line' });
   line.dataset.status = outcome.status;
