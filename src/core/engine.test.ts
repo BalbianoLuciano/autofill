@@ -146,6 +146,17 @@ describe('runFill', () => {
     expect(document.querySelector<HTMLInputElement>('[value="yes"]')!.checked).toBe(true);
   });
 
+  it('no dice «todo completo» cuando no habia ningun campo', () => {
+    // El formulario estaba en un iframe de otro origen y aca no llego nada.
+    // Antes esto reportaba «esta todo completo, falta el boton de enviar»,
+    // que manda a buscar el problema al lugar equivocado.
+    render(`<div><h1>Backend Developer</h1><p>Postulate abajo.</p></div>`);
+    const report = run({ autoApply: true });
+
+    expect(report.filled).toEqual([]);
+    expect(report.apply.status).toBe('no-fields');
+  });
+
   it('avisa cuando pide una moneda que no esta cargada', () => {
     render(`<label for="a">Expected salary in EUR</label><input id="a" name="salary">`);
     const report = run({ fillSensitive: true });

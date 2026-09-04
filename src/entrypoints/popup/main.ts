@@ -934,6 +934,9 @@ function applyLine(outcome: FillReport['apply']): HTMLElement {
     case 'armed':
       line.textContent = `Enviando con «${outcome.label}» — cancelable desde la página.`;
       break;
+    case 'no-fields':
+      line.textContent = 'No se encontró ningún campo en esta página.';
+      break;
     case 'no-button':
       line.textContent = 'Todo completo, pero no se identificó el botón de enviar.';
       break;

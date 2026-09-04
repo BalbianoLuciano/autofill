@@ -213,6 +213,7 @@ export type MatchSource =
 /** Como quedo el intento de enviar la aplicacion. */
 export type ApplyOutcome =
   | { status: 'off' }                                  // el ajuste esta apagado
+  | { status: 'no-fields' }                            // no habia ningun campo que tocar
   | { status: 'incomplete'; missing: string[] }        // faltan obligatorios
   | { status: 'no-button' }                            // no se encontro el boton
   | { status: 'armed'; label: string };                // cuenta regresiva corriendo

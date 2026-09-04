@@ -68,7 +68,14 @@ export function runFill(options: RunOptions): FillReport {
   }
 
   const cvAttached = options.settings.attachCv ? attachCvTo(document, options.cv) : undefined;
-  const apply = orchestrateApply(options, touched, pending, lang);
+
+  // Sin un solo campo detectado no hay nada que decidir sobre el envio, y
+  // decir «esta todo completo» seria mentir: lo que pasa es que el formulario
+  // no esta aca. Suele estar en un iframe de otro origen, y el popup lo
+  // distingue por este estado.
+  const apply: ApplyOutcome = detected.length === 0
+    ? { status: 'no-fields' }
+    : orchestrateApply(options, touched, pending, lang);
 
   // Despues de rellenar, no antes: lo que importa es lo que quedo vacio
   // cuando el relleno ya hizo todo lo que podia.
