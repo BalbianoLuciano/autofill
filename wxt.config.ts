@@ -5,7 +5,7 @@ export default defineConfig({
   manifest: {
     name: 'Autofill',
     description:
-      'Rellena formularios de aplicacion laboral con un click. Todo queda en el dispositivo.',
+      'Fill job application forms in one click. Everything stays on your device.',
     // activeTab en vez de una lista de host_permissions: los portales de
     // recruiting son infinitos y ninguna lista los cubre. El permiso se
     // concede solo para la pestana activa y solo cuando abris el popup.
@@ -22,12 +22,12 @@ export default defineConfig({
     // falta. Se revoca desde chrome://extensions como cualquier otro.
     optional_host_permissions: ['<all_urls>'],
     action: {
-      default_title: 'Autofill — rellenar formulario',
+      default_title: 'Autofill — fill this form',
     },
     commands: {
       _execute_action: {
         suggested_key: { default: 'Alt+Shift+F' },
-        description: 'Abrir Autofill',
+        description: 'Open Autofill',
       },
     },
   },
