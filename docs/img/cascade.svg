@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="392" viewBox="0 0 900 392" role="img" aria-label="The matcher cascade, from most to least reliable">
+  <defs>
+    <clipPath id="card"><rect x="0" y="0" width="900" height="392" rx="14"/></clipPath>
+    <linearGradient id="hdr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2d33"/><stop offset="1" stop-color="#232529"/>
+    </linearGradient>
+    <linearGradient id="rail" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#30d158"/><stop offset="0.5" stop-color="#0a84ff"/><stop offset="1" stop-color="#5c626c"/>
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#card)">
+    <rect x="0" y="0" width="900" height="392" fill="#17181c"/>
+    <rect x="0" y="0" width="900" height="40" fill="url(#hdr)"/>
+    <rect x="0" y="39" width="900" height="1" fill="#0d0e11"/>
+    <circle cx="22" cy="20" r="6" fill="#ff5f57"/>
+    <circle cx="44" cy="20" r="6" fill="#febc2e"/>
+    <circle cx="66" cy="20" r="6" fill="#28c840"/>
+    <text x="450" y="24" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#868c96">matcher.ts — the cascade</text>
+
+    <text x="40" y="76" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12" fill="#71767f">most reliable first · stops at the first hit</text>
+
+    <line x1="53" y1="104" x2="53" y2="316" stroke="url(#rail)" stroke-width="2" opacity="0.35"/>
+
+    <circle cx="53" cy="112" r="13" fill="#1f2126" stroke="#30d158" stroke-width="1.5"/>
+    <text x="53" y="117" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#30d158">1</text>
+    <text x="84" y="117" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13.5" fill="#e4e6ea">learned mapping</text>
+    <text x="330" y="117" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#7c818a">what you taught it on this hostname. Always wins.</text>
+
+    <circle cx="53" cy="163" r="13" fill="#1f2126" stroke="#3a4a5c" stroke-width="1.5"/>
+    <text x="53" y="168" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#8fb4dd">2</text>
+    <text x="84" y="168" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13.5" fill="#e4e6ea">autocomplete</text>
+    <text x="330" y="168" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#7c818a">the one standard attribute — when the value has a single owner.</text>
+
+    <circle cx="53" cy="214" r="13" fill="#1f2126" stroke="#3a4a5c" stroke-width="1.5"/>
+    <text x="53" y="219" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#8fb4dd">3</text>
+    <text x="84" y="219" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13.5" fill="#e4e6ea">&lt;label&gt;</text>
+    <text x="330" y="219" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#7c818a">via for=, an ancestor label, or aria-labelledby.</text>
+
+    <circle cx="53" cy="265" r="13" fill="#1f2126" stroke="#4a4a52" stroke-width="1.5"/>
+    <text x="53" y="270" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#a8adb6">4</text>
+    <text x="84" y="270" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13.5" fill="#e4e6ea">name · id · aria-label</text>
+    <text x="330" y="270" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#7c818a">plus placeholder and data-testid.</text>
+
+    <circle cx="53" cy="316" r="13" fill="#1f2126" stroke="#4a4a52" stroke-width="1.5"/>
+    <text x="53" y="321" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#a8adb6">5</text>
+    <text x="84" y="321" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13.5" fill="#e4e6ea">nearby text</text>
+    <text x="330" y="321" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#7c818a">last resort, for inputs with no label at all.</text>
+
+    <rect x="0" y="348" width="900" height="44" fill="#1b1d21"/>
+    <rect x="0" y="348" width="900" height="1" fill="#26282d"/>
+    <text x="40" y="375" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#7c818a">compared by token, never by substring:  <tspan fill="#e4e6ea">name</tspan> ≠ <tspan fill="#e4e6ea">company name</tspan> ≠ <tspan fill="#e4e6ea">username</tspan> ≠ <tspan fill="#e4e6ea">filename</tspan></text>
+  </g>
+  <rect x="0.5" y="0.5" width="899" height="391" rx="14" fill="none" stroke="#2c2f36"/>
+</svg>

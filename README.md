@@ -1,223 +1,235 @@
+<div align="center">
+
 # Autofill
 
-Extensión de Chrome que rellena formularios de aplicación laboral con un click.
+**A Chrome extension that fills job application forms in one click.**
 
-Cada portal pide los mismos datos con nombres distintos. Esto los reconoce y los
-completa. **No** aplica solo: rellena, y la persona revisa y envía.
+Every portal asks for the same data under a different name.
+This one recognizes them and fills them in. It does **not** apply for you:
+it fills, you review, you submit.
 
----
+<img src="https://img.shields.io/badge/Chrome-MV3-1a1c20?style=flat-square&labelColor=1a1c20&color=30d158" alt="Chrome MV3">
+<img src="https://img.shields.io/badge/TypeScript-strict-1a1c20?style=flat-square&labelColor=1a1c20&color=0a84ff" alt="TypeScript strict">
+<img src="https://img.shields.io/badge/tests-134%20passing-1a1c20?style=flat-square&labelColor=1a1c20&color=30d158" alt="134 tests passing">
+<img src="https://img.shields.io/badge/data-stays%20on%20device-1a1c20?style=flat-square&labelColor=1a1c20&color=bf5af2" alt="Data stays on device">
+<img src="https://img.shields.io/badge/license-MIT-1a1c20?style=flat-square&labelColor=1a1c20&color=8b919b" alt="MIT license">
 
-## Cómo funciona
+<br><br>
 
-Tres partes:
+<img src="docs/img/hero.svg" width="880" alt="Autofill filling a job application: fields in green were filled, amber ones are sensitive and left to you, gray ones were not recognized">
 
-- **Diccionario** (`src/core/fields.ts`) — 38 campos del perfil y 385 formas en que un
-  formulario puede pedirlos, en inglés, español, francés, alemán y portugués.
-- **Motor** (`matcher.ts` + `resolve.ts` + `filler.ts` + `engine.ts`) — encuentra los
-  campos, resuelve qué valor corresponde a cada uno y los completa.
-- **Memoria** (`storage.ts`) — guarda el perfil y aprende los campos que no supo mapear.
-
-El perfil no guarda texto plano: guarda **intención**. «Quiero 2500 dólares por mes»,
-«puedo trabajar en Argentina y España». Cada formulario pide otra cosa —un anual en
-USD, un Sí/No— y el motor traduce.
-
-### Por qué no hay lista de sitios
-
-Los portales de recruiting no se pueden enumerar: hay ATS con dominio propio, páginas
-de carreras alojadas en el sitio de cada empresa, y los derivados de LinkedIn que se
-abren al clickear "Solicitar". Una lista de `host_permissions` siempre queda corta.
-
-En vez de eso el manifest pide **`activeTab`**: no da acceso a nada hasta que abrís el
-popup, y ahí concede permiso sobre esa pestaña y solo esa. El motor no está declarado
-en el manifest; el popup lo inyecta con `scripting.executeScript` en el momento de
-rellenar. Estés donde estés, funciona; y la extensión no puede leer ninguna pestaña
-que no hayas abierto vos con el botón.
-
-### El límite de `activeTab`, y los formularios incrustados
-
-`activeTab` concede el origen del **frame principal**, y nada más. Los ATS embebidos
-—Greenhouse dentro de la web de la empresa, o un bloque HTML de Wix, que se sirve desde
-otro dominio— viven en un iframe ajeno, y ahí el motor no entra: la página se lee entera
-y no hay un solo campo que tocar.
-
-Por eso el manifest declara además `optional_host_permissions`. No se pide nada al
-instalar. Cuando el panel detecta que el formulario está en un iframe de otro dominio
-—se lo pregunta al frame que lo contiene, que sí lo ve— ofrece un botón para concederle
-permiso **a ese dominio**, una vez. Queda guardado para la próxima y se revoca desde
-`chrome://extensions` como cualquier otro.
-
-### La cascada
-
-El matcher prueba de más confiable a menos y se corta en el primer acierto:
-
-1. **Mapping aprendido** para ese hostname. Gana siempre.
-2. **`autocomplete`** — el único atributo estándar, cuando el valor tiene un solo dueño.
-   `url` lo declaran LinkedIn, GitHub, portfolio y otros: no dice nada y se sigue bajando.
-3. **`<label>` asociado** — vía `for=`, label ancestro o `aria-labelledby`.
-4. **`name` / `id` / `aria-label` / `placeholder` / `data-testid`**.
-5. **Texto cercano** en el DOM, para inputs sin label.
-
-Todo se normaliza antes de comparar: `first_name`, `first-name`, `firstName` y
-`First Name` son lo mismo.
-
-La comparación es **por token, no por substring**. Si no, `name` matchea `company name`,
-`username` y `filename`. Un alias de varias palabras cuenta si aparece como secuencia
-contigua; uno de una sola palabra cuenta entero solo si es distintivo (`linkedin` lo usa
-un campo, `name` lo usan cuatro y entonces exige coincidencia exacta).
-
-### Idioma, salario y regiones
-
-Tres cosas que un campo de texto libre no resuelve:
-
-**El idioma sale de la página.** Se detecta de `<html lang>` y, como refuerzo, contando
-palabras funcionales. Los campos enumerados (disponibilidad, nivel de inglés, modalidad)
-guardan un código y se renderizan solos en el idioma que corresponda; los de texto libre
-admiten una variante en inglés, y si falta se cae al castellano.
-
-**El salario se convierte entre períodos, nunca entre monedas ni entre bruto y neto.**
-Se guarda monto + moneda + período + si es bruto o neto, y el label dice qué pide:
-*hourly rate*, *expected annual salary (USD)*, *salario neto mensual*. Pasar de mes a año
-es aritmética; pasar de dólares a pesos no, porque el tipo de cambio se mueve y en
-Argentina hay varios a la vez, y pasar de neto a bruto tampoco, porque el impuesto
-depende del país, del tramo y de la situación de cada uno. Si el formulario pide algo que
-no está cargado, se avisa en vez de inventar una cifra.
-
-La cuenta pasa por el total anual, no por el mensual, porque el mensual depende de en
-cuántas pagas se reparta el año: 30.000 € son 2.500 al mes en 12 pagas y 2.142 en 14. La
-tarifa horaria, en cambio, sale siempre de doce meses de trabajo.
-
-**El permiso de trabajo es una lista de regiones.** «¿Estás autorizado a trabajar en la
-UE?» no se contesta con una frase, se contesta con Sí o No. Guardás dónde podés trabajar
-y el motor resuelve según qué región menciona la pregunta. El patrocinio de visa se
-deduce de ahí, invertido: si podés trabajar ahí, no necesitás que te patrocinen.
-
-### El relleno
-
-Lo más importante del proyecto son diez líneas en `filler.ts`.
-
-Los inputs controlados por React **ignoran `element.value = x`**: React guarda el último
-valor que él escribió, ve que coincide y descarta el evento. El campo se ve lleno y el
-formulario se envía vacío. Greenhouse, Lever y Ashby son todos React.
-
-La salida es llamar al setter nativo del prototipo, que escribe sin pasar por el
-descriptor que React instaló en la instancia, y recién ahí disparar `input` y `change`.
-
-Para `<select>` y radios se elige la opción cuyo texto más se parece al valor. Si
-ninguna llega al umbral no se toca nada y se reporta: mejor vacío que el país equivocado.
+</div>
 
 ---
 
-## Los campos sensibles
+## How it works
 
-Salario (pretendido y actual), permiso de trabajo, patrocinio de visa, situación
-migratoria, documento, fecha de nacimiento, dirección, carta de presentación y los
-cuatro campos EEO de los formularios estadounidenses.
+<div align="center">
+<img src="docs/img/parts.svg" width="880" alt="The three parts: dictionary, engine and memory">
+</div>
 
-No se rellenan solos. Se resaltan en naranja para completarlos a mano. Un salario mal
-puesto o un «requiero visa» equivocado queman la aplicación, y se piensan caso por caso.
+The profile does not store text, it stores **intent**. *I want 2,500 dollars a month*,
+*I can work in Argentina and Spain*. Each form asks for something else — an annual figure
+in USD, a Yes/No — and the engine translates.
 
-**Pero sí se resuelven**: el popup te muestra el valor que corresponde a *ese* campo —la
-cifra ya convertida al período y la moneda que pide— con un botón para copiarlo. Hay un
-ajuste para rellenarlos automáticamente, apagado por defecto.
+### Why there is no site list
+
+Recruiting portals cannot be enumerated: there are ATS on their own domain, careers pages
+hosted on each company's site, and the LinkedIn spin-offs that open when you click *Apply*.
+A `host_permissions` list is always short by one.
+
+Instead, the manifest asks for **`activeTab`**: it grants nothing until you open the popup,
+and then only for that one tab. The engine is not declared in the manifest; the popup
+injects it with `scripting.executeScript` at the moment you fill. Wherever you are, it
+works — and the extension cannot read a single tab you did not open yourself with the
+button.
+
+### The limit of `activeTab`, and embedded forms
+
+`activeTab` grants the origin of the **main frame**, and nothing else. Embedded ATS —
+Greenhouse inside the company's site, or a Wix HTML block, served from another domain —
+live in a cross-origin iframe, and the engine does not reach in there: the whole page gets
+read and there is not one field to touch.
+
+That is why the manifest also declares `optional_host_permissions`. Nothing is requested at
+install time. When the panel detects the form is inside a cross-origin iframe — it asks the
+containing frame, which does see it — it offers a button to grant permission **to that
+domain**, once. It sticks for next time, and it is revoked from `chrome://extensions` like
+any other.
+
+### The cascade
+
+<div align="center">
+<img src="docs/img/cascade.svg" width="880" alt="The matcher cascade: learned mapping, autocomplete, label, name/id/aria-label, nearby text">
+</div>
+
+Everything is normalized before comparing: `first_name`, `first-name`, `firstName` and
+`First Name` are the same thing.
+
+The comparison is **by token, never by substring**. Otherwise `name` matches `company name`,
+`username` and `filename`. A multi-word alias counts if it appears as a contiguous sequence;
+a single-word alias counts on its own only if it is distinctive (`linkedin` is used by one
+field, `name` by four — so that one demands an exact match).
+
+### Language, salary and regions
+
+Three things a free-text field does not solve:
+
+**Language comes from the page.** Detected from `<html lang>` and, as a tie-breaker, by
+counting function words. Enumerated fields (availability, English level, work setup) store a
+code and render themselves in the right language; free-text fields accept an English
+variant, and fall back to Spanish when it is missing.
+
+**Salary converts between periods — never between currencies, never between gross and net.**
+It stores amount + currency + period + whether it is gross or net, and the label says what is
+being asked: *hourly rate*, *expected annual salary (USD)*, *salario neto mensual*. Going
+from month to year is arithmetic; going from dollars to pesos is not, because the exchange
+rate moves and in Argentina there are several at once — and going from net to gross is not
+either, because tax depends on the country, the bracket and each person's situation. If the
+form asks for something that was never entered, it says so instead of inventing a number.
+
+The math goes through the **annual total**, not the monthly one, because the monthly figure
+depends on how many payments the year is split into: €30,000 is €2,500 a month over 12
+payments and €2,142 over 14. The hourly rate, on the other hand, always comes from twelve
+months of work.
+
+**Work authorization is a list of regions.** *Are you authorized to work in the EU?* is not
+answered with a sentence, it is answered Yes or No. You store where you can work and the
+engine resolves against whichever region the question mentions. Visa sponsorship is derived
+from that, inverted: if you can work there, you do not need sponsoring.
+
+### The filling
+
+The most important thing in this project is ten lines in `filler.ts`.
+
+React-controlled inputs **ignore `element.value = x`**: React keeps the last value it wrote,
+sees that it matches, and drops the event. The field looks full and the form submits empty.
+Greenhouse, Lever and Ashby are all React.
+
+The way out is to call the native prototype setter, which writes without going through the
+descriptor React installed on the instance, and only then dispatch `input` and `change`.
+
+For `<select>` and radios, the option whose text is closest to the value wins. If none clears
+the threshold nothing is touched, and it gets reported: better empty than the wrong country.
 
 ---
 
-## Privacidad
+## The sensitive fields
 
-- Todo vive en `chrome.storage.local`. Nada sale del dispositivo: no hay backend, no hay
-  base de datos, no hay telemetría.
-- `storage.sync` está descartado a propósito: 8KB por item, y estos datos no tienen por
-  qué viajar a los servidores de Google.
-- Sin `<all_urls>`. Los permisos son `activeTab`, `scripting`, `storage`,
-  `unlimitedStorage` (por los CVs) y `downloads` (solo para el botón Exportar).
-- **El perfil real nunca se commitea.** `profile.example.json` tiene datos ficticios y
-  muestra la forma del JSON que acepta Importar.
+Salary (expected and current), work authorization, visa sponsorship, immigration status, ID
+number, date of birth, address, cover letter, and the four EEO fields of US forms.
+
+They are not filled automatically. They are highlighted in amber so you fill them by hand. A
+wrong salary or a mistaken *I require a visa* burns the application, and those are thought
+through case by case.
+
+**But they are still resolved**: the popup shows you the value that belongs in *that* field —
+the figure already converted to the period and currency being asked for — with a button to
+copy it. There is a setting to fill them automatically, off by default.
 
 ---
 
-## Desarrollo
+## Privacy
+
+| Guarantee | What it means |
+|---|---|
+| **Local only** | Everything lives in `chrome.storage.local`. Nothing leaves the device: no backend, no database, no telemetry. |
+| **No `storage.sync`** | Deliberately ruled out: 8KB per item, and this data has no business travelling to Google's servers. |
+| **No `<all_urls>`** | Permissions are `activeTab`, `scripting`, `storage`, `unlimitedStorage` (for the CVs) and `downloads` (only for the Export button). Host access is optional and granted per domain, by you, when a form turns out to be embedded. |
+| **No real profile in git** | `profile.example.json` holds fictional data and shows the shape of the JSON that Import accepts. |
+
+---
+
+## Development
+
+<div align="center">
+<img src="docs/img/terminal.svg" width="880" alt="npm install, npm run dev, npm test, npm run build">
+</div>
 
 ```bash
 npm install
-npm run dev      # carga la extensión en un Chrome de desarrollo, con hot reload
-npm test         # 82 tests sobre el matcher, la resolución, el envío y el motor
+npm run dev      # loads the extension in a development Chrome, with hot reload
+npm test         # 134 tests over the matcher, resolution, submission and the engine
 npm run build    # .output/chrome-mv3
-npm run zip      # paquete para la Chrome Web Store
+npm run zip      # package for the Chrome Web Store
 ```
 
-Para instalarla en el Chrome de todos los días: `npm run build`, después
-`chrome://extensions` → Modo desarrollador → Cargar descomprimida → `.output/chrome-mv3`.
+To install it in your everyday Chrome: `npm run build`, then `chrome://extensions` →
+Developer mode → Load unpacked → `.output/chrome-mv3`.
 
-### Estructura
+### Layout
 
 ```
 src/
 ├── core/
-│   ├── fields.ts      # el diccionario
-│   ├── normalize.ts   # texto a forma canónica, tokens, similitud
-│   ├── context.ts     # idioma de la página, período, moneda y región del campo
-│   ├── resolve.ts     # del perfil al texto exacto que va en este campo
-│   ├── matcher.ts     # la cascada + recorrido del DOM y shadow DOM
-│   ├── filler.ts      # el setter nativo, selects, radios, resaltado
-│   ├── questions.ts   # preguntas abiertas guardadas, por similitud
-│   ├── cvs.ts         # el pool de CVs y cómo se adjuntan
-│   ├── apply.ts       # el botón de enviar y si conviene tocarlo
-│   ├── overlay.ts     # el panel sobre la página
-│   ├── engine.ts      # arma el informe aplicando las políticas
-│   └── storage.ts     # perfil, mappings aprendidos, export/import
+│   ├── fields.ts      # the dictionary
+│   ├── normalize.ts   # text to canonical form, tokens, similarity
+│   ├── context.ts     # page language, and the field's period, currency and region
+│   ├── resolve.ts     # from the profile to the exact text this field wants
+│   ├── matcher.ts     # the cascade + DOM and shadow DOM traversal
+│   ├── filler.ts      # the native setter, selects, radios, highlighting
+│   ├── questions.ts   # saved open questions, matched by similarity
+│   ├── cvs.ts         # the CV pool and how they get attached
+│   ├── audit.ts       # required fields left unanswered
+│   ├── frames.ts      # which iframes are out of reach
+│   ├── apply.ts       # the submit button, and whether to touch it
+│   ├── overlay.ts     # the panel drawn over the page
+│   ├── engine.ts      # builds the report, applying the policies
+│   └── storage.ts     # profile, learned mappings, export/import
 ├── entrypoints/
-│   ├── autofill.ts    # el script que se inyecta en la página
+│   ├── autofill.ts    # the script injected into the page
 │   ├── background.ts  # service worker
-│   └── popup/         # el botón, el resultado y el editor del perfil
+│   └── popup/         # the button, the result and the profile editor
 └── types.ts
 ```
 
 ---
 
-## Uso
+## Usage
 
-1. Abrí el popup, pestaña **Perfil**, completá los datos y guardá.
-2. En un formulario de aplicación, abrí el popup y clickeá **Rellenar**.
-3. Revisá el resultado:
-   - verde: completado
-   - naranja: sensible, lo completás vos
-   - gris: no lo reconoció
+1. Open the popup, **Profile** tab, fill in your data and save.
+2. On an application form, open the popup and click **Fill**.
+3. Read the result:
+   - **green** — filled
+   - **amber** — sensitive, you fill it
+   - **gray** — not recognized
 
-Los que no reconoció traen un desplegable para asignarlos a un campo del perfil. Al
-elegir, se guarda el mapping para ese hostname y se rellena en el momento. **La próxima
-vez en ese sitio ya lo sabe** — y como el mapping se guarda por el hostname del frame,
-lo aprendido en `boards.greenhouse.io` sirve para todas las empresas que usen Greenhouse.
+The unrecognized ones come with a dropdown to assign them to a profile field. Picking one
+saves the mapping for that hostname and fills it right away. **Next time on that site it
+already knows** — and since the mapping is stored per frame hostname, what it learned on
+`boards.greenhouse.io` works for every company using Greenhouse.
 
-Atajo: `Alt+Shift+F` abre el popup.
+Shortcut: `Alt+Shift+F` opens the popup.
 
 ---
 
-## Versiones
+## Versioning
 
-La versión sale de `package.json` y se ve en `chrome://extensions` y en el encabezado del
-popup, que es la forma rápida de saber si Chrome ya recargó el build nuevo. El historial
-está en [CHANGELOG.md](CHANGELOG.md).
+The version comes from `package.json` and shows up in `chrome://extensions` and in the popup
+header, which is the quick way to tell whether Chrome already picked up the new build. The
+history is in [CHANGELOG.md](CHANGELOG.md).
 
-Después de un `npm run build`, en `chrome://extensions` alcanza con el botón recargar:
-no hace falta volver a cargar la carpeta.
+After an `npm run build`, the reload button in `chrome://extensions` is enough — no need to
+load the folder again.
 
-## Contribuir
+## Contributing
 
-Se agradecen PRs, sobre todo **aliases nuevos para el diccionario** y **portales
-donde no funciona**. Ver [CONTRIBUTING.md](CONTRIBUTING.md).
+PRs welcome, especially **new aliases for the dictionary** and **portals where it does not
+work**. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-El razonamiento detrás de cada decisión está en
-[docs/DISENO.md](docs/DISENO.md).
+The reasoning behind each decision is in [docs/DISENO.md](docs/DISENO.md).
 
-## Licencia
+## License
 
-MIT. Ver [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
-## Pendiente
+## Roadmap
 
-- **Adaptadores por ATS** para los formularios en varios pasos.
-- **Combobox custom** (Workday, Ashby): inputs que no son `<select>` sino un `<div>` con
-  una lista que aparece al tipear. Hoy se completa el texto pero no se elige la opción.
-- **`MutationObserver`** para los campos que aparecen después de un scan.
-- **LLM como fallback** para los campos que la heurística no reconoce. Va después, y solo
-  como último paso de la cascada.
+- **Per-ATS adapters** for multi-step forms.
+- **Custom comboboxes** (Workday, Ashby): inputs that are not a `<select>` but a `<div>` with
+  a list that appears as you type. Today the text gets filled but the option is not picked.
+- **`MutationObserver`** for fields that show up after a scan.
+- **`contenteditable`** support, for the rich-text editors Lever and Ashby use.
+- **Grouping by question** instead of by `name`, so a checkbox group is one control and not N.
+- **LLM as a fallback** for fields the heuristics miss. That comes later, and only as the last
+  step of the cascade.

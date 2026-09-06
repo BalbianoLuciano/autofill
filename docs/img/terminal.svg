@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="248" viewBox="0 0 900 248" role="img" aria-label="Terminal with the development commands">
+  <defs>
+    <clipPath id="card"><rect x="0" y="0" width="900" height="248" rx="14"/></clipPath>
+    <linearGradient id="hdr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2d33"/><stop offset="1" stop-color="#232529"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#card)">
+    <rect x="0" y="0" width="900" height="248" fill="#101114"/>
+    <rect x="0" y="0" width="900" height="40" fill="url(#hdr)"/>
+    <rect x="0" y="39" width="900" height="1" fill="#0d0e11"/>
+    <circle cx="22" cy="20" r="6" fill="#ff5f57"/>
+    <circle cx="44" cy="20" r="6" fill="#febc2e"/>
+    <circle cx="66" cy="20" r="6" fill="#28c840"/>
+    <text x="450" y="24" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#868c96">zsh — autofill</text>
+
+    <text x="32" y="80" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+      <tspan fill="#30d158">$</tspan><tspan fill="#e4e6ea" dx="10">npm install</tspan>
+    </text>
+    <text x="32" y="110" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+      <tspan fill="#30d158">$</tspan><tspan fill="#e4e6ea" dx="10">npm run dev</tspan><tspan fill="#5f6570" dx="20"># dev Chrome, hot reload</tspan>
+    </text>
+    <text x="32" y="140" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+      <tspan fill="#30d158">$</tspan><tspan fill="#e4e6ea" dx="10">npm test</tspan><tspan fill="#5f6570" dx="20"># 134 tests, ~1s</tspan>
+    </text>
+    <text x="32" y="170" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+      <tspan fill="#30d158">$</tspan><tspan fill="#e4e6ea" dx="10">npm run build</tspan><tspan fill="#5f6570" dx="20"># .output/chrome-mv3</tspan>
+    </text>
+    <text x="32" y="206" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+      <tspan fill="#5f6570">›</tspan><tspan fill="#8b919b" dx="10">Test Files</tspan><tspan fill="#30d158" dx="12">10 passed</tspan><tspan fill="#5f6570" dx="8">(10)</tspan>
+    </text>
+    <text x="32" y="228" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+      <tspan fill="#5f6570">›</tspan><tspan fill="#8b919b" dx="10">Tests</tspan><tspan fill="#30d158" dx="12">134 passed</tspan><tspan fill="#5f6570" dx="8">(134)</tspan>
+    </text>
+  </g>
+  <rect x="0.5" y="0.5" width="899" height="247" rx="14" fill="none" stroke="#2c2f36"/>
+</svg>

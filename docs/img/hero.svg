@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="424" viewBox="0 0 900 424" role="img" aria-label="Autofill filling a job application form">
+  <defs>
+    <clipPath id="card"><rect x="0" y="0" width="900" height="424" rx="14"/></clipPath>
+    <linearGradient id="hdr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2d33"/><stop offset="1" stop-color="#232529"/>
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#card)">
+    <rect x="0" y="0" width="900" height="424" fill="#17181c"/>
+    <rect x="0" y="0" width="900" height="40" fill="url(#hdr)"/>
+    <rect x="0" y="39" width="900" height="1" fill="#0d0e11"/>
+    <circle cx="22" cy="20" r="6" fill="#ff5f57"/>
+    <circle cx="44" cy="20" r="6" fill="#febc2e"/>
+    <circle cx="66" cy="20" r="6" fill="#28c840"/>
+    <text x="450" y="24" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#868c96">Backend Developer — Application</text>
+
+    <!-- row 1 -->
+    <text x="32" y="79" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">First name</text>
+    <rect x="32" y="88" width="400" height="38" rx="9" fill="#202226" stroke="#2e3138"/>
+    <line x1="34" y1="96" x2="34" y2="118" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+    <text x="50" y="112" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#e4e6ea">Luciano</text>
+
+    <text x="468" y="79" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">Expected salary (annual, USD)</text>
+    <rect x="468" y="88" width="400" height="38" rx="9" fill="#202226" stroke="#3a3226"/>
+    <line x1="470" y1="96" x2="470" y2="118" stroke="#ff9f0a" stroke-width="3" stroke-linecap="round"/>
+    <text x="486" y="112" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#f2d3a4">30,000</text>
+    <text x="852" y="112" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11" fill="#9a8256">copy</text>
+
+    <!-- row 2 -->
+    <text x="32" y="153" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">Email</text>
+    <rect x="32" y="162" width="400" height="38" rx="9" fill="#202226" stroke="#2e3138"/>
+    <line x1="34" y1="170" x2="34" y2="192" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+    <text x="50" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#e4e6ea">luciano@example.com</text>
+
+    <text x="468" y="153" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">Are you authorized to work in the EU?</text>
+    <rect x="468" y="162" width="400" height="38" rx="9" fill="#202226" stroke="#2e3138"/>
+    <line x1="470" y1="170" x2="470" y2="192" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+    <text x="486" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#e4e6ea">Yes</text>
+    <path d="M844 176 l7 7 l12 -13" fill="none" stroke="#30d158" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- row 3 -->
+    <text x="32" y="227" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">LinkedIn</text>
+    <rect x="32" y="236" width="400" height="38" rx="9" fill="#202226" stroke="#2e3138"/>
+    <line x1="34" y1="244" x2="34" y2="266" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+    <text x="50" y="260" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#e4e6ea">linkedin.com/in/luciano</text>
+
+    <text x="468" y="227" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">Cover letter</text>
+    <rect x="468" y="236" width="400" height="38" rx="9" fill="#202226" stroke="#3a3226"/>
+    <line x1="470" y1="244" x2="470" y2="266" stroke="#ff9f0a" stroke-width="3" stroke-linecap="round"/>
+    <text x="486" y="260" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" font-style="italic" fill="#9a8256">you write this one</text>
+
+    <!-- row 4 -->
+    <text x="32" y="301" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">Years of experience</text>
+    <rect x="32" y="310" width="400" height="38" rx="9" fill="#202226" stroke="#2e3138"/>
+    <line x1="34" y1="318" x2="34" y2="340" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+    <text x="50" y="334" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#e4e6ea">6</text>
+
+    <text x="468" y="301" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="11.5" fill="#71767f">How did you hear about us?</text>
+    <rect x="468" y="310" width="400" height="38" rx="9" fill="#1c1e22" stroke="#33373e" stroke-dasharray="4 3"/>
+    <line x1="470" y1="318" x2="470" y2="340" stroke="#5c626c" stroke-width="3" stroke-linecap="round"/>
+    <text x="486" y="334" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" font-style="italic" fill="#6a707a">not recognized — teach it once</text>
+
+    <!-- status bar -->
+    <rect x="0" y="372" width="900" height="52" fill="#1b1d21"/>
+    <rect x="0" y="372" width="900" height="1" fill="#26282d"/>
+    <circle cx="38" cy="398" r="4" fill="#30d158"/>
+    <text x="52" y="402" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#c8ccd2">24 filled</text>
+    <circle cx="176" cy="398" r="4" fill="#ff9f0a"/>
+    <text x="190" y="402" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#c8ccd2">3 left to you — resolved, ready to paste</text>
+    <circle cx="500" cy="398" r="4" fill="#5c626c"/>
+    <text x="514" y="402" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif" font-size="12.5" fill="#c8ccd2">1 unknown</text>
+    <text x="868" y="402" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11.5" fill="#6a707a">⌥⇧F</text>
+  </g>
+  <rect x="0.5" y="0.5" width="899" height="423" rx="14" fill="none" stroke="#2c2f36"/>
+</svg>
